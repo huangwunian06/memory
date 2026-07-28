@@ -19,7 +19,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'storages',
     'rest_framework',
     'corsheaders',
     'memories',
@@ -78,35 +77,12 @@ TIME_ZONE = 'Asia/Shanghai'
 USE_I18N = True
 USE_TZ = True
 
-# 静态文件（whitenoise）
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# 媒体文件：Render 上用 Cloudflare R2，本地用文件系统
-R2_ENABLED = bool(os.getenv('R2_ACCESS_KEY_ID', ''))
-if R2_ENABLED:
-    STORAGES = {
-        'default': {
-            'BACKEND': 'storages.backends.s3.S3Storage',
-            'OPTIONS': {
-                'access_key': os.getenv('R2_ACCESS_KEY_ID'),
-                'secret_key': os.getenv('R2_SECRET_ACCESS_KEY'),
-                'bucket_name': os.getenv('R2_BUCKET_NAME'),
-                'endpoint_url': os.getenv('R2_ENDPOINT_URL'),
-                'default_acl': 'public-read',
-                'file_overwrite': False,
-            },
-        },
-        'staticfiles': {
-            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
-        },
-    }
-    MEDIA_URL = f"https://{os.getenv('R2_BUCKET_NAME')}.{os.getenv('R2_ENDPOINT_URL','').split('//')[1].split('.')[0]}.r2.cloudflarestorage.com/"
-    MEDIA_ROOT = ''
-else:
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 BAIDU_APP_ID = os.getenv('BAIDU_APP_ID', '')
 BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', '')
