@@ -12,9 +12,6 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'change-me-in-production')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
-
-# Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -22,13 +19,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',          
-    'corsheaders',             
-    'memories',    
-    ]
+    'storages',
+    'rest_framework',
+    'corsheaders',
+    'memories',
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -57,10 +56,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'highschool_memories.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -68,49 +63,51 @@ DATABASES = {
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
 LOGIN_URL = '/login/'
-CSRF_TRUSTED_ORIGINS = ['https://*.loca.lt']
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://*.loca.lt,https://*.trycloudflare.com').split(',')
 
 LANGUAGE_CODE = 'zh-hans'
-
 TIME_ZONE = 'Asia/Shanghai'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
+# 静态文件（whitenoise）
 STATIC_URL = 'static/'
-import os
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# 媒体文件：Render 上用 Cloudflare R2，本地用文件系统
+R2_ENABLED = bool(os.getenv('R2_ACCESS_KEY_ID', ''))
+if R2_ENABLED:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+            'OPTIONS': {
+                'access_key': os.getenv('R2_ACCESS_KEY_ID'),
+                'secret_key': os.getenv('R2_SECRET_ACCESS_KEY'),
+                'bucket_name': os.getenv('R2_BUCKET_NAME'),
+                'endpoint_url': os.getenv('R2_ENDPOINT_URL'),
+                'default_acl': 'public-read',
+                'file_overwrite': False,
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+    MEDIA_URL = f"https://{os.getenv('R2_BUCKET_NAME')}.{os.getenv('R2_ENDPOINT_URL','').split('//')[1].split('.')[0]}.r2.cloudflarestorage.com/"
+    MEDIA_ROOT = ''
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 BAIDU_APP_ID = os.getenv('BAIDU_APP_ID', '')
 BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', '')
 BAIDU_SECRET_KEY = os.getenv('BAIDU_SECRET_KEY', '')

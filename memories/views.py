@@ -252,13 +252,15 @@ def upload_photo(request):
                 messages.error(request, '你没有权限上传到此相册')
                 return redirect('upload_photo')
         elif target_name and target_name != request.user.profile.display_name:
-            # 为他人上传但没有选相册 → 自动创建
             album_name = f'{request.user.profile.display_name}为{target_name}上传的相册'
             target_p = Profile.objects.filter(display_name=target_name).first()
             if target_p:
                 album, _ = Album.objects.get_or_create(owner=target_p, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
             else:
                 album = Album.objects.create(owner=request.user.profile, name=album_name, is_public=True, album_type='personal')
+        else:
+            # 无相册也无target → 自动创建默认相册
+            album, _ = Album.objects.get_or_create(owner=request.user.profile, name='我的照片', defaults={'is_public': True, 'album_type': 'personal'})
         img_count = 0
         vid_count = 0
         for f in files:

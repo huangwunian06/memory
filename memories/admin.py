@@ -49,6 +49,7 @@ class PendingRegistrationAdmin(admin.ModelAdmin):
     注册时用户必须从此列表中选择自己的姓名。is_taken 标记该姓名是否已被注册。
     """
     list_display = ('name', 'is_taken')
+    list_editable = ('is_taken',)
     list_filter = ('is_taken',)
     search_fields = ('name',)
     fieldsets = (

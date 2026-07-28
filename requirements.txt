@@ -1,0 +1,8 @@
+django>=6.0,<6.1
+pillow
+baidu-aip
+python-dotenv
+gunicorn
+whitenoise
+boto3
+django-storages
