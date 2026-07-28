@@ -1,0 +1,20 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;max-width:700px;margin:0 auto;">
+    <div class="card">
+        <h2>📷 照片详情</h2>
+        {% if photo.video %}
+        <video src="{{ photo.video.url }}" controls style="width:100%;max-height:400px;border-radius:12px;"></video>
+        {% else %}
+        <img src="{{ photo.image.url }}" style="width:100%;max-height:400px;object-fit:contain;border-radius:12px;cursor:pointer;" onclick="openM('{{ photo.image.url }}', false)" loading="lazy">
+        {% endif %}
+        {% if photo.caption %}<p><strong>{{ photo.caption }}</strong></p>{% endif %}
+        {% if photo.description %}<p style="color:#666;">{{ photo.description }}</p>{% endif %}
+        {% if photo.message %}<div style="background:var(--card-bg);padding:0.8rem;border-radius:8px;border-left:3px solid #667eea;margin:0.5rem 0;">💬 {{ photo.uploaded_by.display_name }}：{{ photo.message }}</div>{% endif %}
+        <p style="color:#888;font-size:0.85rem;">上传者：{{ photo.uploaded_by.display_name }} · {{ photo.uploaded_at|date:"Y-m-d H:i" }}</p>
+        <p style="color:#888;font-size:0.85rem;">👁️ 浏览 {{ photo.view_count }} 次</p>
+        {% if photo.album %}<a class="btn" href="{% url 'album_detail' album_id=photo.album.id %}">📁 查看相册</a>{% endif %}
+        {% if photo.uploaded_by == user.profile %}<a class="btn del-btn" href="{% url 'photo_delete' photo_id=photo.id %}" onclick="return confirm('确定删除？')">🗑️ 删除</a>{% endif %}
+    </div>
+</div>
+{% endblock %}

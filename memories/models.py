@@ -1,0 +1,299 @@
+import os
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile', verbose_name='用户账号')
+    display_name = models.CharField(max_length=50, unique=True, verbose_name='显示名称')
+    birthday = models.DateField(null=True, blank=True, verbose_name='生日')
+    bio = models.TextField(max_length=500, blank=True, verbose_name='个人简介')
+    face_token = models.CharField(max_length=100, blank=True, verbose_name='人脸标识')
+    bg_image = models.ImageField(upload_to='user_bg/', blank=True, null=True, verbose_name='个人空间背景')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    global_bg = models.ImageField(upload_to='user_bg/', blank=True, null=True, verbose_name='全站背景')
+
+    class Meta:
+        verbose_name = '个人档案'
+        verbose_name_plural = '个人档案'
+
+    def __str__(self):
+        return self.display_name
+
+
+class InviteCode(models.Model):
+    code = models.CharField(max_length=20, unique=True, verbose_name='邀请码')
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
+    max_uses = models.PositiveIntegerField(default=1, verbose_name='最大使用次数')
+    used_count = models.PositiveIntegerField(default=0, verbose_name='已使用次数')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='过期时间')
+
+    class Meta:
+        verbose_name = '邀请码'
+        verbose_name_plural = '邀请码'
+
+    def is_valid(self):
+        if not self.is_active:
+            return False
+        if self.max_uses and self.used_count >= self.max_uses:
+            return False
+        if self.expires_at and timezone.now() > self.expires_at:
+            return False
+        return True
+
+    def __str__(self):
+        return f"邀请码: {self.code} ({self.used_count}/{self.max_uses})"
+
+
+class PendingRegistration(models.Model):
+    name = models.CharField(max_length=50, unique=True, verbose_name='姓名')
+    is_taken = models.BooleanField(default=False, verbose_name='是否已注册')
+
+    class Meta:
+        verbose_name = '花名册'
+        verbose_name_plural = '花名册'
+
+    def __str__(self):
+        return f"{self.name} {'(已注册)' if self.is_taken else '(可用)'}"
+
+
+class ClassPhoto(models.Model):
+    title = models.CharField(max_length=100, verbose_name='标题')
+    image = models.ImageField(upload_to='class_photos/', verbose_name='合照图片')
+    description = models.TextField(blank=True, verbose_name='描述')
+    order = models.PositiveIntegerField(default=0, verbose_name='排序')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        verbose_name = '班级合照'
+        verbose_name_plural = '班级合照'
+        ordering = ['order', '-created_at']
+
+    def __str__(self):
+        return self.title
+
+class FaceHotzone(models.Model):
+    photo = models.ForeignKey(ClassPhoto, on_delete=models.CASCADE, related_name='hotzones', verbose_name='所属合照')
+    profile = models.ForeignKey('PendingRegistration', on_delete=models.SET_NULL, related_name='hotzones', null=True, blank=True, verbose_name='关联同学')
+    x = models.FloatField(help_text='X 坐标（百分比）', verbose_name='X坐标%')
+    y = models.FloatField(help_text='Y 坐标（百分比）', verbose_name='Y坐标%')
+    width = models.FloatField(help_text='宽度（百分比）', verbose_name='宽度%')
+    height = models.FloatField(help_text='高度（百分比）', verbose_name='高度%')
+
+    class Meta:
+        verbose_name = '人脸热区'
+        verbose_name_plural = '人脸热区'
+        ordering = ['y', 'x']
+
+    def __str__(self):
+        name = self.profile.name if self.profile else '未识别'
+        return f'{name} @ {self.photo.title}'
+
+
+@receiver(post_save, sender=ClassPhoto)
+def auto_create_hotzones(sender, instance, created, **kwargs):
+    """ClassPhoto 保存时自动调用百度人脸检测生成热区。
+    - 新建时自动触发
+    - 更新时如果没有任何热区记录，也自动触发（方便在 admin 点 Save 重新生成）
+    """
+    if not instance.image:
+        return
+    # 更新时如果已有热区则跳过，避免重复生成
+    if not created and instance.hotzones.exists():
+        return
+    from .utils import detect_faces_in_photo
+    try:
+        faces = detect_faces_in_photo(instance.image.path)
+        # 清除旧热区（针对更新时重新生成的情况）
+        if not created:
+            instance.hotzones.all().delete()
+        for face in faces:
+            FaceHotzone.objects.create(
+                photo=instance,
+                profile=None,
+                x=face['x'],
+                y=face['y'],
+                width=face['width'],
+                height=face['height']
+            )
+    except Exception as e:
+        print(f"自动生成热区失败: {e}")
+
+
+# ========== 新增：个人相册与照片 ==========
+class Album(models.Model):
+    ALBUM_TYPES = [('personal', '个人相册'), ('shared', '共同相册')]
+    owner = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='albums', verbose_name='所有者')
+    name = models.CharField(max_length=100, verbose_name='相册名称')
+    description = models.TextField(blank=True, verbose_name='描述')
+    is_public = models.BooleanField(default=False, verbose_name='是否公开到公共板块')
+    album_type = models.CharField(max_length=10, choices=ALBUM_TYPES, default='personal', verbose_name='相册类型')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        verbose_name = '相册'
+        verbose_name_plural = '相册'
+
+    def __str__(self):
+        return f"{self.owner.display_name} - {self.name}"
+
+
+class Photo(models.Model):
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name='photos', null=True, blank=True, verbose_name='所属相册')
+    uploaded_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='uploaded_photos', verbose_name='上传者')
+    image = models.ImageField(upload_to='user_photos/', blank=True, null=True, verbose_name='图片')
+    video = models.FileField(upload_to='user_videos/', blank=True, null=True, verbose_name='视频')
+    caption = models.CharField(max_length=200, blank=True, verbose_name='描述')
+    description = models.TextField(max_length=1000, blank=True, verbose_name='详细描述（可被搜索）')
+    message = models.CharField(max_length=500, blank=True, verbose_name='留言')
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
+    view_count = models.PositiveIntegerField(default=0, verbose_name='浏览次数')
+
+    class Meta:
+        verbose_name = '照片/视频'
+        verbose_name_plural = '照片/视频'
+
+    @property
+    def media_type(self):
+        return 'video' if self.video else 'image'
+
+    @property
+    def media_url(self):
+        return self.video.url if self.video else self.image.url if self.image else ''
+
+    def __str__(self):
+        return f"Photo by {self.uploaded_by.display_name}"
+
+
+class PhotoFaceMapping(models.Model):
+    """记录照片中检测到的人脸与 Profile 的关联"""
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='face_mappings', verbose_name='照片')
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='face_mappings', null=True, blank=True, verbose_name='匹配同学')
+    x = models.FloatField(verbose_name='X坐标%')
+    y = models.FloatField(verbose_name='Y坐标%')
+    width = models.FloatField(verbose_name='宽度%')
+    height = models.FloatField(verbose_name='高度%')
+    is_auto_matched = models.BooleanField(default=False, verbose_name='是否自动匹配')
+
+    class Meta:
+        verbose_name = '照片人脸映射'
+        verbose_name_plural = '照片人脸映射'
+
+    def __str__(self):
+        name = self.profile.display_name if self.profile else '未知'
+        return f"{name} in {self.photo.id}"
+
+
+# ========== 新增：时间线 ==========
+class TimelineEvent(models.Model):
+    title = models.CharField(max_length=100, verbose_name='标题')
+    description = models.TextField(blank=True, verbose_name='描述')
+    event_date = models.DateField(verbose_name='事件日期')
+    created_by = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='创建者')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    is_approved = models.BooleanField(default=True, verbose_name='已审核')  # 当前策略：直接生效
+
+    class Meta:
+        verbose_name = '时间线事件'
+        verbose_name_plural = '时间线事件'
+
+    def __str__(self):
+        return self.title
+
+
+class EventPhoto(models.Model):
+    event = models.ForeignKey(TimelineEvent, on_delete=models.CASCADE, related_name='photos', verbose_name='所属事件')
+    image = models.ImageField(upload_to='event_photos/', blank=True, null=True, verbose_name='图片')
+    video = models.FileField(upload_to='event_videos/', blank=True, null=True, verbose_name='视频')
+    uploaded_by = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='上传者')
+    caption = models.CharField(max_length=200, blank=True, verbose_name='描述')
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
+
+    class Meta:
+        verbose_name = '事件照片/视频'
+        verbose_name_plural = '事件照片/视频'
+
+    @property
+    def media_type(self):
+        return 'video' if self.video else 'image'
+
+    @property
+    def media_url(self):
+        return self.video.url if self.video else self.image.url if self.image else ''
+
+    def __str__(self):
+        return f"EventPhoto for {self.event.title}"
+
+
+# ========== 新增：修正记录 ==========
+class CorrectionRequest(models.Model):
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='corrections', verbose_name='目标照片')
+    requested_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='corrections', verbose_name='发起人')
+    current_assigned_to = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name='pending_corrections', verbose_name='当前归属')
+    suggested_profile = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name='suggested_corrections', verbose_name='建议改为')
+    is_resolved = models.BooleanField(default=False, verbose_name='是否已处理')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        verbose_name = '修正请求'
+        verbose_name_plural = '修正请求'
+
+    def __str__(self):
+        return f"修正: {self.photo.id} -> {self.suggested_profile}"
+# ========== 行为日志 ==========
+class ActivityLog(models.Model):
+    user = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='用户')
+    action = models.CharField(max_length=50, verbose_name='操作类型')
+    detail = models.CharField(max_length=500, verbose_name='详情')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='时间')
+
+    class Meta:
+        verbose_name = '行为日志'
+        verbose_name_plural = '行为日志'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.display_name} {self.action} @ {self.created_at.strftime("%m-%d %H:%M")}'
+
+
+class SiteSetting(models.Model):
+    key = models.CharField(max_length=50, unique=True, verbose_name='设置键名')
+    value = models.CharField(max_length=255, blank=True, verbose_name='文本值')
+    image = models.ImageField(upload_to='site/', blank=True, null=True, verbose_name='图片值')
+
+    class Meta:
+        verbose_name = '站点设置'
+        verbose_name_plural = '站点设置'
+
+    def __str__(self):
+        return self.key
+
+
+# ========== 通知系统 ==========
+class Notification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('correction', '修正请求'),
+        ('face_match', '人脸匹配'),
+        ('event_photo', '事件新照片'),
+        ('public_photo', '公开照片'),
+        ('event_created', '新事件'),
+    ]
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', verbose_name='接收者')
+    sender = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='sent_notifications', null=True, blank=True, verbose_name='发送者')
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, verbose_name='通知类型')
+    title = models.CharField(max_length=200, verbose_name='标题')
+    message = models.TextField(verbose_name='内容')
+    related_url = models.CharField(max_length=500, blank=True, verbose_name='关联链接')
+    is_read = models.BooleanField(default=False, verbose_name='是否已读')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        verbose_name = '通知'
+        verbose_name_plural = '通知'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{'已读' if self.is_read else '未读'}] {self.title} -> {self.recipient.username}"

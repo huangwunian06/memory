@@ -1,0 +1,69 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<style>
+    .upload-intro {
+        background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1));
+        border-left: 4px solid #667eea; border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem;
+    }
+    .upload-intro h3 { color: #667eea; margin-bottom: 0.5rem; }
+    .upload-intro ol { padding-left: 1.2rem; line-height: 1.8; color: #555; }
+    .face-canvas-wrap { position: relative; margin: 1rem 0; display: none; }
+    .face-canvas-wrap canvas { max-width: 100%; border-radius: 12px; cursor: crosshair; }
+    .face-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
+    .face-tag { background: rgba(255,23,68,0.15); border: 1px solid #ff1744; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; cursor: pointer; }
+    .face-tag.selected { background: rgba(78,203,113,0.2); border-color: #4ecb71; }
+</style>
+
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;max-width:700px;margin:0 auto;">
+    <h2>🤖 自动上传</h2>
+    {% if target %}<p style="color:#888;">目标：{{ target.display_name }}</p>{% endif %}
+
+    <div class="upload-intro">
+        <h3>📖 功能说明</h3>
+        <ol>
+            <li>选择一张或多张照片上传</li>
+            <li>系统<b>自动检测照片中的人脸</b>并识别是谁</li>
+            <li>自动将照片归入对应同学的相册（<b>自动上传相册</b>）</li>
+            <li>如果照片中有多个人，分别归入各自的相册</li>
+            <li>未识别到人脸的照片归入你自己名下</li>
+        </ol>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="auto-upload-form">
+        {% csrf_token %}
+        <label>选择照片（可多选）：</label>
+        <input type="file" name="images" multiple accept="image/*" required onchange="previewFaces(this)"><br><br>
+        <label>照片描述（可被搜索）：</label>
+        <input type="text" name="caption" style="width:100%;max-width:100%;"><br><br>
+        <label>留言（对方可见）：</label>
+        <textarea name="message" rows="2" style="width:100%;max-width:100%;"></textarea><br><br>
+        <button class="btn" type="submit">🚀 自动上传并识别人脸</button>
+    </form>
+</div>
+<script>
+function previewFaces(input) {
+    // 预览选中图片（简化版——完整人脸标注在后续迭代中实现）
+    if (!input.files || input.files.length === 0) return;
+    var container = document.getElementById('face-preview-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'face-preview-container';
+        container.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;';
+        input.parentNode.appendChild(container);
+    }
+    container.innerHTML = '';
+    for (var i = 0; i < Math.min(input.files.length, 6); i++) {
+        var reader = new FileReader();
+        (function(file) {
+            reader.onload = function(e) {
+                var wrap = document.createElement('div');
+                wrap.style.cssText = 'position:relative;width:100px;height:80px;';
+                wrap.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"><span style="position:absolute;bottom:2px;right:4px;background:rgba(0,0,0,0.6);color:white;font-size:0.65rem;padding:1px 5px;border-radius:8px;">' + file.name + '</span>';
+                container.appendChild(wrap);
+            };
+        })(input.files[i]);
+        reader.readAsDataURL(input.files[i]);
+    }
+}
+</script>
+{% endblock %}

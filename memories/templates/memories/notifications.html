@@ -1,0 +1,32 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="card" style="max-width:700px; margin:0 auto;">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h2>🔔 通知中心</h2>
+    {% if notifications %}
+    <a class="btn" href="{% url 'notifications_read_all' %}">全部标为已读</a>
+    {% endif %}
+  </div>
+</div>
+
+{% for n in notifications %}
+  <div class="card" style="max-width:700px; margin:0 auto 1rem auto; opacity: {% if n.is_read %}0.55{% else %}1{% endif %}; border-left: 4px solid {% if n.is_read %}#ccc{% else %}#667eea{% endif %};">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+      <div>
+        <h4>
+          {% if n.notification_type == 'correction' %}🔧{% elif n.notification_type == 'face_match' %}👤{% elif n.notification_type == 'event_photo' %}📸{% elif n.notification_type == 'public_photo' %}🖼️{% elif n.notification_type == 'event_created' %}📅{% else %}📌{% endif %}
+          {{ n.title }}
+        </h4>
+        <p>{{ n.message }}</p>
+        <small style="color:#999;">{{ n.created_at|date:"Y-m-d H:i" }} · {{ n.get_notification_type_display }}</small>
+      </div>
+      <a class="btn" href="{% url 'notification_read' n.id %}" style="white-space:nowrap;{% if n.is_read %}opacity:0.5;{% endif %}">查看</a>
+    </div>
+  </div>
+{% empty %}
+  <div class="card" style="max-width:700px; margin:0 auto; text-align:center;">
+    <p style="font-size:3rem;">🎉</p>
+    <p>暂无通知</p>
+  </div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;">
+    <p style="color:#888;margin-bottom:0.3rem;">
+        <a href="{% url 'photos_by_others' display_name=target.display_name %}">← 返回</a>
+    </p>
+    <h2>👤 {{ uploader.display_name }} 为 {{ target.display_name }} 上传</h2>
+    <p style="color:#888;margin-bottom:1.5rem;">共 {{ photos|length }} 张</p>
+
+    {% if photos %}
+    {% regroup photos by uploaded_at.date as photo_groups %}
+    {% for group in photo_groups %}
+    <div style="margin-bottom:2rem;">
+        <div style="background:var(--card-bg);display:inline-block;padding:0.3rem 1rem;border-radius:20px;font-size:0.85rem;color:#667eea;margin-bottom:0.8rem;font-weight:bold;">📅 {{ group.grouper }}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.8rem;align-items:flex-start;">
+            {% for p in group.list %}
+            <div class="card" style="padding:0.5rem;width:200px;">
+                {% if p.video %}
+                <video src="{{ p.video.url }}" controls preload="metadata" style="width:100%;height:140px;object-fit:cover;border-radius:8px;"></video>
+                {% else %}
+                <img src="{{ p.image.url }}" loading="lazy" onclick="openM('{{ p.image.url }}', false)" style="width:100%;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;" title="点击放大">
+                {% endif %}
+                {% if p.caption %}<p style="font-size:0.85rem;margin:0.3rem 0;">{{ p.caption }}</p>{% endif %}
+                <p style="color:#888;font-size:0.7rem;margin:0;">📅 {{ p.uploaded_at|date:"H:i" }} · 📦 {{ p.file_size }}</p>
+                {% if p.message %}<div style="font-size:0.8rem;color:#555;margin-top:0.3rem;padding:0.3rem 0.5rem;background:rgba(102,126,234,0.08);border-radius:6px;border-left:2px solid #667eea;">💬 {{ p.message }}</div>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p>暂无照片</p>
+    {% endif %}
+
+    <p style="margin-top:2rem;">
+        <a href="{% url 'photos_by_others' display_name=target.display_name %}">← 返回上传者列表</a> ｜
+        <a href="{% url 'home' %}">返回合照</a>
+    </p>
+</div>
+{% endblock %}

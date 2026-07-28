@@ -1,0 +1,652 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<style>
+    /* === 背景层（有设置图则用，否则随机抽取照片） === */
+    .home-bg {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: url('{% if bg_image %}{{ bg_image }}{% elif random_bg %}{{ random_bg }}{% else %}/media/class_photos/default_bg.jpg{% endif %}') center/cover no-repeat;
+        opacity: 0.35; z-index: -1;
+    }
+    .bg-credit {
+        position: fixed; bottom: 8px; right: 16px; color: rgba(255,255,255,0.5); font-size: 0.7rem; z-index: -1;
+    }
+
+    /* === 首页合照展示 === */
+    .photo-showcase {
+        display: flex; flex-direction: column; align-items: center; gap: 30px;
+        padding: 30px 0 60px;
+    }
+    .photo-item {
+        width: 80%; max-width: 800px; position: relative; cursor: pointer;
+        opacity: 0; transform: translateY(30px);
+        animation: floatUp 0.8s ease forwards;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .photo-item:nth-child(1) { animation-delay: 0.2s; }
+    .photo-item:nth-child(2) { animation-delay: 0.5s; }
+    .photo-item:nth-child(3) { animation-delay: 0.8s; }
+    .photo-item:nth-child(4) { animation-delay: 1.1s; }
+    .photo-item:nth-child(5) { animation-delay: 1.4s; }
+
+    @keyframes floatUp {
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .photo-item:hover { transform: scale(1.02); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+    .photo-item img {
+        width: 100%; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        display: block;
+    }
+
+    /* === 首页热区（完全透明，悬停才显示） === */
+    .hotzone {
+        position: absolute;
+        border: 0px solid transparent;
+        background: transparent;
+        border-radius: 50%; z-index: 10; cursor: pointer;
+        transition: border 0.3s, background 0.3s, box-shadow 0.3s;
+    }
+    .hotzone:hover {
+        background: rgba(102,126,234,0.25);
+        border: 2px solid rgba(102,126,234,0.7);
+        box-shadow: 0 0 12px rgba(102,126,234,0.5);
+    }
+
+    /* === 灯箱遮罩 === */
+    #lightbox {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.92); z-index: 1000;
+        backdrop-filter: blur(8px);
+        animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    #lightbox-close {
+        position: fixed; top: 16px; right: 24px; z-index: 1010;
+        color: white; font-size: 2rem; cursor: pointer;
+        width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+        background: rgba(255,255,255,0.15); border-radius: 50%;
+        transition: background 0.3s;
+    }
+    #lightbox-close:hover { background: rgba(255,255,255,0.35); }
+
+    /* === 灯箱内容区 === */
+    #lightbox-body {
+        display: flex; width: 100%; height: 100%; align-items: center;
+        padding: 40px 20px; box-sizing: border-box;
+    }
+    #lightbox-photo-area {
+        flex: 1; height: 100%; position: relative; overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+    }
+    #lightbox-img-wrap {
+        position: relative; display: inline-block;
+        transition: transform 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    #lightbox-img {
+        max-width: 90vw; max-height: 85vh; display: block;
+        border-radius: 8px;
+    }
+    #lightbox-img-wrap.zoomed {
+        /* translate 由 JS 动态计算，确保人物居中 */
+    }
+
+    /* === 灯箱中的热区（透明，悬停/选中才显示） === */
+    .lb-hotzone {
+        position: absolute;
+        border: 0px solid transparent;
+        background: transparent;
+        border-radius: 50%; z-index: 10; cursor: pointer;
+        transition: border 0.35s, background 0.35s, box-shadow 0.35s;
+    }
+    .lb-hotzone:hover {
+        background: rgba(255,200,50,0.3);
+        border: 2px solid rgba(255,200,50,0.8);
+        box-shadow: 0 0 18px rgba(255,200,50,0.6);
+        z-index: 11;
+    }
+    .lb-hotzone.active {
+        background: rgba(255,80,80,0.35);
+        border: 3px solid #ff5050;
+        box-shadow: 0 0 22px rgba(255,80,80,0.8);
+        z-index: 11;
+        animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 22px rgba(255,80,80,0.8); }
+        50% { box-shadow: 0 0 35px rgba(255,80,80,1); }
+    }
+    .lb-hotzone.has-profile:hover {
+        border-color: #4ecb71;
+        background: rgba(78,203,113,0.3);
+    }
+    .lb-hotzone.has-profile.active {
+        border-color: #4ecb71;
+        background: rgba(78,203,113,0.4);
+        box-shadow: 0 0 22px rgba(78,203,113,0.8);
+    }
+
+    /* === 右侧个人信息卡 === */
+    #profile-card {
+        display: none; flex-direction: column;
+        width: 320px; max-width: 35vw; min-width: 260px;
+        background: rgba(30,30,50,0.95); color: #eee;
+        border-radius: 16px; padding: 1.5rem;
+        margin-left: 1.5rem; height: fit-content; max-height: 85vh;
+        overflow-y: auto;
+        animation: slideIn 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.15);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(60px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    #profile-card h3 { color: #ffdd57; margin-bottom: 0.5rem; font-size: 1.3rem; }
+    #profile-card .meta { color: #aaa; font-size: 0.85rem; margin-bottom: 1rem; }
+    #profile-card .bio { margin-bottom: 1rem; line-height: 1.5; color: #ccc; }
+    #profile-card .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    #profile-card .actions a {
+        display: inline-block; padding: 0.5rem 1rem; border-radius: 20px;
+        text-decoration: none; font-size: 0.9rem; transition: background 0.3s;
+    }
+    #profile-card .btn-primary {
+        background: #667eea; color: white;
+    }
+    #profile-card .btn-primary:hover { background: #5a6fd6; }
+    #profile-card .btn-secondary {
+        background: rgba(255,255,255,0.15); color: #ddd;
+    }
+    #profile-card .btn-secondary:hover { background: rgba(255,255,255,0.3); }
+
+    #profile-card .unidentified {
+        color: #ff8c42; font-size: 0.9rem; line-height: 1.6;
+    }
+    #profile-card .unidentified strong { color: #ffdd57; }
+
+    /* === 响应式 === */
+    @media (max-width: 768px) {
+        .photo-item { width: 95% !important; }
+        /* 首页浮动按钮在手机上缩小并靠边 */
+        a[href*="auto_upload"], a[href*="shared_albums"] {
+            right: 8px !important; padding: 0.5rem 0.8rem !important; font-size: 0.8rem !important;
+        }
+        a[href*="auto_upload"] { top: 35% !important; }
+        a[href*="shared_albums"] { top: 48% !important; }
+        #lightbox-body { flex-direction: column; padding: 60px 10px 20px; }
+        #lightbox-photo-area { width: 100%; flex: none; height: 55vh; }
+        #profile-card { width: 100%; max-width: 100%; margin: 1rem 0 0; }
+        #lightbox-img { max-width: 95vw; max-height: 50vh; }
+    }
+</style>
+
+<div class="home-bg"></div>
+
+<div class="photo-showcase">
+    <h1 style="color: white; text-shadow: 2px 2px 10px rgba(0,0,0,0.5);">🎓 {{ display_name }}，欢迎回到班级回忆</h1>
+    <p style="color: rgba(255,255,255,0.7); margin-bottom: 10px;">👆 点击合照可放大查看，再点击人物可聚焦</p>
+    <a href="{% url 'auto_upload' %}" class="btn" style="position:fixed;right:24px;top:40%;z-index:50;font-size:1rem;padding:0.8rem 1.5rem;background:linear-gradient(135deg,#667eea,#764ba2);box-shadow:0 8px 30px rgba(102,126,234,0.4);animation:float 3s ease-in-out infinite;">🤖 自动上传</a>
+    <a href="{% url 'shared_albums' %}" class="btn" style="position:fixed;right:24px;top:55%;z-index:50;font-size:1rem;padding:0.8rem 1.5rem;background:linear-gradient(135deg,#e67e22,#e74c3c);box-shadow:0 8px 30px rgba(230,126,34,0.4);animation:float 3s ease-in-out 0.5s infinite;">👥 共同相册</a>
+    <script id="profiles-data" type="application/json">{{ profiles_json|safe }}</script>
+    <script>window.currentUserName = "{{ current_user_name|escapejs }}";</script>
+    {% for photo in photos %}
+        <div class="photo-item" data-photo-id="{{ photo.id }}" data-photo-url="{{ photo.image.url }}" data-photo-title="{{ photo.title }}"
+             onclick="openLightbox(this)" style="border-radius:20px; overflow:hidden;">
+            <img src="{{ photo.image.url }}" alt="{{ photo.title }}" loading="lazy">
+            {% for zone in photo.hotzones.all %}
+                <div class="hotzone"
+                     style="left: {{ zone.x }}%; top: {{ zone.y }}%; width: {{ zone.width }}%; height: {{ zone.height }}%;"
+                     title="{% if zone.profile %}{{ zone.profile.name }}{% else %}未识别 — 点击查看详情{% endif %}"
+                     data-zone-id="{{ zone.id }}"
+                     data-profile-name="{% if zone.profile %}{{ zone.profile.name }}{% endif %}"
+                     data-profile-bio=""
+                     data-profile-url="{% if zone.profile %}{% url 'space' display_name=zone.profile.name %}{% endif %}"
+                     data-profile-albums="{% if zone.profile %}{% url 'space' display_name=zone.profile.name %}{% endif %}"
+                     data-x="{{ zone.x }}" data-y="{{ zone.y }}" data-w="{{ zone.width }}" data-h="{{ zone.height }}"
+                     onclick="event.stopPropagation(); selectPerson(this);">
+                </div>
+            {% endfor %}
+        </div>
+    {% empty %}
+        <p style="color: white;">管理员还未上传班级合照。</p>
+    {% endfor %}
+</div>
+
+<!-- ========== 灯箱层 ========== -->
+<div id="lightbox" onclick="closeLightbox(event)">
+    <div id="lightbox-close" onclick="closeLightbox()" title="关闭">✕</div>
+    <div id="lightbox-body" onclick="event.stopPropagation()">
+        <!-- 左侧：图片区 -->
+        <div id="lightbox-photo-area" onclick="deselectPerson()">
+            <div id="lightbox-img-wrap">
+                <img id="lightbox-img" src="" alt="">
+                <div id="hotzones-layer"></div>
+            </div>
+        </div>
+        <!-- 右侧：个人信息卡 -->
+        <div id="profile-card">
+            <div id="profile-card-content"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== 当前灯箱数据 ==========
+let currentPhoto = null;     // 当前 photo-item DOM
+let currentHotzones = [];   // 当前合照的热区数据
+let selectedZone = null;    // 当前选中的热区
+
+// ========== 打开灯箱 ==========
+function openLightbox(photoItem) {
+    currentPhoto = photoItem;
+    const url = photoItem.dataset.photoUrl;
+    const img = document.getElementById('lightbox-img');
+    const wrap = document.getElementById('lightbox-img-wrap');
+    const layer = document.getElementById('hotzones-layer');
+    const card = document.getElementById('profile-card');
+
+    // 重置状态
+    wrap.classList.remove('zoomed');
+    wrap.style.transform = '';
+    wrap.style.transformOrigin = '';
+    card.style.display = 'none';
+    selectedZone = null;
+
+    // 设置图片
+    img.src = url;
+    document.getElementById('lightbox').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    // 收集热区数据
+    currentHotzones = [];
+    layer.innerHTML = '';
+    photoItem.querySelectorAll('.hotzone').forEach((hz, idx) => {
+        const data = {
+            id: hz.dataset.zoneId,
+            x: parseFloat(hz.dataset.x),
+            y: parseFloat(hz.dataset.y),
+            w: parseFloat(hz.dataset.w),
+            h: parseFloat(hz.dataset.h),
+            profileName: hz.dataset.profileName || null,
+            profileBio: hz.dataset.profileBio || '',
+            profileUrl: hz.dataset.profileUrl || null,
+            profileAlbums: hz.dataset.profileAlbums || null,
+        };
+        currentHotzones.push(data);
+
+        // 渲染灯箱中的热区
+        const el = document.createElement('div');
+        el.className = 'lb-hotzone' + (data.profileName ? ' has-profile' : '');
+        el.style.cssText = `left:${data.x}%;top:${data.y}%;width:${data.w}%;height:${data.h}%;`;
+        el.title = data.profileName || '未识别';
+        el.addEventListener('click', (e) => { e.stopPropagation(); selectPersonByData(data, el); });
+        layer.appendChild(el);
+    });
+}
+
+// ========== 关闭灯箱 ==========
+function closeLightbox(e) {
+    if (e && e.target !== document.getElementById('lightbox') && e.target !== document.getElementById('lightbox-close')) return;
+    const lb = document.getElementById('lightbox');
+    lb.style.display = 'none';
+    document.body.style.overflow = '';
+    selectedZone = null;
+    sessionStorage.removeItem('lb_restore');
+    // 清理滚轮和拖拽事件
+    if (lb._wheelHandler) { lb.removeEventListener('wheel', lb._wheelHandler); lb._wheelHandler = null; }
+    if (lb._mouseDownHandler) { lb.removeEventListener('mousedown', lb._mouseDownHandler); lb._mouseDownHandler = null; }
+    if (lb._mouseMoveHandler) { document.removeEventListener('mousemove', lb._mouseMoveHandler); lb._mouseMoveHandler = null; }
+    if (lb._mouseUpHandler) { document.removeEventListener('mouseup', lb._mouseUpHandler); lb._mouseUpHandler = null; }
+    // 重置缩放
+    const img = document.getElementById('lightbox-img');
+    if (img) { img.style.transform = ''; img.style.cursor = ''; img.style.maxWidth = ''; img.style.maxHeight = ''; }
+}
+
+// ========== 选中人物（从首页热区点击） ==========
+function selectPerson(hzEl) {
+    // 先打开灯箱
+    const photoItem = hzEl.closest('.photo-item');
+    if (document.getElementById('lightbox').style.display !== 'block') {
+        openLightbox(photoItem);
+    }
+    // 延迟等图片加载后执行聚焦
+    const data = {
+        x: parseFloat(hzEl.dataset.x),
+        y: parseFloat(hzEl.dataset.y),
+        w: parseFloat(hzEl.dataset.w),
+        h: parseFloat(hzEl.dataset.h),
+        profileName: hzEl.dataset.profileName || null,
+        profileBio: hzEl.dataset.profileBio || '',
+        profileUrl: hzEl.dataset.profileUrl || null,
+        profileAlbums: hzEl.dataset.profileAlbums || null,
+    };
+    setTimeout(() => focusPerson(data), 400);
+}
+
+// ========== 选中人物（从灯箱热区点击） ==========
+function selectPersonByData(data, lbEl) {
+    // 高亮当前热区
+    document.querySelectorAll('.lb-hotzone.active').forEach(el => el.classList.remove('active'));
+    if (lbEl) lbEl.classList.add('active');
+    focusPerson(data);
+}
+
+// ========== 聚焦人物（精确居中 + 动态缩放） ==========
+function focusPerson(data) {
+    const wrap = document.getElementById('lightbox-img-wrap');
+    const img = document.getElementById('lightbox-img');
+    const container = document.getElementById('lightbox-photo-area');
+    const card = document.getElementById('profile-card');
+    const content = document.getElementById('profile-card-content');
+
+    selectedZone = data;
+
+    const cW = container.clientWidth;
+    const cH = container.clientHeight;
+    const iW = img.clientWidth;
+    const iH = img.clientHeight;
+    if (!cW || !cH || !iW || !iH) { setTimeout(() => focusPerson(data), 100); return; }
+
+    // 人物中心在图片中的像素坐标
+    const px = (data.x + data.w / 2) / 100 * iW;
+    const py = (data.y + data.h / 2) / 100 * iH;
+
+    // 人物面部在图片中的像素高度
+    const faceH = data.h / 100 * iH;
+
+    // 动态缩放：让人脸占容器高度的 50%，使画面只保留目标人物及少量周围人物
+    const scale = Math.min(Math.max(cH * 0.5 / Math.max(faceH, 1), 3), 10);
+
+    // translate 相对于图片自然居中位置：wrap 被 flex 居中于容器中
+    // transformOrigin='0 0'，translate 从图片左上角偏移
+    const tx = iW / 2 - px * scale;
+    const ty = iH / 2 - py * scale;
+
+    wrap.style.transformOrigin = '0 0';
+    wrap.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    wrap.classList.add('zoomed');
+
+    // 保存状态到 sessionStorage，离开页面后返回可恢复
+    const photoItem = currentPhoto;
+    if (photoItem) {
+        sessionStorage.setItem('lb_restore', JSON.stringify({
+            photoUrl: photoItem.dataset.photoUrl,
+            photoTitle: photoItem.dataset.photoTitle,
+            photoId: photoItem.dataset.photoId,
+            zoneData: data
+        }));
+    }
+
+    // 渲染个人信息卡
+    renderProfileCard(data, content, card);
+}
+
+// ========== 渲染个人信息卡（含相册预览 + 他人上传） ==========
+function renderProfileCard(data, content, card) {
+    window._currentTargetName = data.profileName || '';
+    if (!data.profileName) {
+        // 未识别
+        content.innerHTML = `
+            <h3>❓ 未识别</h3>
+            <div class="unidentified">
+                <p>该人物尚未关联到班级同学。</p>
+                <p><strong>如何关联：</strong></p>
+                <ol style="padding-left:1.2rem; line-height:1.8;">
+                    <li>进入 <strong>后台管理</strong> → <strong>人脸热区</strong></li>
+                    <li>找到该热区记录（可通过合照名称筛选）</li>
+                    <li>在 <strong>关联同学</strong> 字段选择对应的人</li>
+                    <li>保存后，首页点击即可跳转到该同学的个人空间</li>
+                </ol>
+                <p style="margin-top:0.8rem;">📌 快捷入口：
+                    <a href="/admin/memories/facehotzone/" target="_blank" style="color:#ffdd57;">打开热区管理</a>
+                </p>
+            </div>
+        `;
+        card.style.display = 'flex';
+        return;
+    }
+
+    // 已识别：读取预加载的详细数据
+    const profileData = window._profilesData && window._profilesData[data.profileName];
+    const isSelf = window.currentUserName === data.profileName;
+    const isRegistered = profileData ? profileData.registered : !!data.profileUrl;
+    let html = `<h3>👤 ${data.profileName}</h3>`;
+
+    if (!isRegistered) {
+        html += `<p class="meta" style="color:#ff8c42;">📋 该同学暂未注册，快去邀请TA注册吧！</p>`;
+    }
+
+    if (data.profileBio) {
+        html += `<p class="meta">${data.profileBio}</p>`;
+    }
+
+    // --- 相册预览 ---
+    if (profileData && profileData.albums && profileData.albums.length > 0) {
+        html += `<div style="margin:0.8rem 0;"><strong style="font-size:0.85rem;color:#aaa;">📁 ${isSelf ? '我的' : 'TA的'}相册</strong></div>`;
+        html += `<div style="display:flex;gap:0.5rem;overflow-x:auto;padding-bottom:0.3rem;">`;
+        profileData.albums.forEach(alb => {
+            const cover = alb.cover || '';
+            html += `<a href="/album/${alb.id}/" style="flex:0 0 80px;text-decoration:none;color:#ddd;">
+                <div style="width:80px;height:60px;border-radius:6px;overflow:hidden;background:#333;">`;
+            if (cover) {
+                html += `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;">`;
+            } else {
+                html += `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📁</div>`;
+            }
+            html += `</div><div style="font-size:0.65rem;text-align:center;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${alb.name}</div></a>`;
+        });
+        if (profileData.total_albums > 3) {
+            html += `<a href="${data.profileUrl}" style="flex:0 0 40px;display:flex;align-items:center;justify-content:center;color:#667eea;font-size:0.7rem;text-decoration:none;">+${profileData.total_albums - 3}</a>`;
+        }
+        html += `</div>`;
+    }
+
+    // --- 他人上传的照片 ---
+    if (profileData && profileData.other_photos && profileData.other_photos.length > 0) {
+        const label = isSelf ? '📸 他人为我上传的照片' : '📸 他人为TA上传的照片';
+        html += `<div style="margin:0.8rem 0;"><strong style="font-size:0.85rem;color:#aaa;">${label}</strong> <span style="color:#888;font-size:0.65rem;">点击放大</span></div>`;
+        html += `<div style="display:flex;gap:0.4rem;overflow-x:auto;padding-bottom:0.3rem;flex-wrap:wrap;">`;
+        profileData.other_photos.forEach(p => {
+            const url = p.url || '';
+            if (url) {
+                if (p.is_video) {
+                    html += `<div onclick="viewFullImage('${url}', true, '${(p.uploader||'').replace(/'/g, "\\'")}')" style="cursor:pointer;width:55px;height:55px;border-radius:4px;overflow:hidden;background:#333;position:relative;">
+                        <video src="${url}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>
+                        <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1rem;pointer-events:none;">▶️</span></div>`;
+                } else {
+                    html += `<img src="${url}" onclick="viewFullImage('${url}', false, '${(p.uploader||'').replace(/'/g, "\\'")}')" style="cursor:pointer;width:55px;height:55px;object-fit:cover;border-radius:4px;" title="点击查看">`;
+                }
+            }
+        });
+        html += `</div>`;
+        if (profileData.total_other > 6 || (profileData.other_photos && profileData.other_photos.length > 0)) {
+            html += `<a href="/space/${encodeURIComponent(data.profileName)}/photos-from-others/" style="font-size:0.7rem;color:#667eea;text-decoration:none;">📋 按上传者查看全部 →</a>`;
+        }
+    }
+
+    html += `<div class="actions" style="margin-top:0.8rem;">
+        <a href="${data.profileUrl}" class="btn-primary">🏠 个人空间</a>
+        <a href="/auto-upload/${encodeURIComponent(data.profileName)}/" class="btn-secondary">🤖 自动上传</a>
+        <a href="/photo/upload/?target=${encodeURIComponent(data.profileName)}" class="btn-secondary">📤 为TA上传</a>
+    </div>`;
+    html += `<p style="color:#888;font-size:0.7rem;margin-top:0.5rem;">点击照片空白处取消聚焦</p>`;
+
+    content.innerHTML = html;
+    card.style.display = 'flex';
+}
+
+// 页面加载时解析 profiles 数据
+(function() {
+    const el = document.getElementById('profiles-data');
+    if (el) {
+        try { window._profilesData = JSON.parse(el.textContent); }
+        catch(e) { window._profilesData = {}; }
+    } else {
+        window._profilesData = {};
+    }
+
+    // 恢复上次离开时的灯箱聚焦状态
+    const saved = sessionStorage.getItem('lb_restore');
+    if (saved) {
+        try {
+            const state = JSON.parse(saved);
+            sessionStorage.removeItem('lb_restore');
+            // 找到对应的 photo-item
+            const items = document.querySelectorAll('.photo-item');
+            for (const item of items) {
+                if (item.dataset.photoUrl === state.photoUrl) {
+                    setTimeout(function() {
+                        openLightbox(item);
+                        setTimeout(function() {
+                            // 触发人物聚焦
+                            const data = state.zoneData;
+                            if (data && data.profileName) {
+                                focusPerson(data);
+                                // 同时高亮对应的灯箱热区
+                                setTimeout(function() {
+                                    const lbZones = document.querySelectorAll('.lb-hotzone');
+                                    lbZones.forEach(function(z) {
+                                        if (Math.abs(parseFloat(z.style.left) - data.x) < 0.1 &&
+                                            Math.abs(parseFloat(z.style.top) - data.y) < 0.1) {
+                                            z.classList.add('active');
+                                        }
+                                    });
+                                }, 600);
+                            }
+                        }, 500);
+                    }, 100);
+                    break;
+                }
+            }
+        } catch(e) {}
+    }
+})();
+
+// ========== 取消聚焦（平滑缩小回原图，CSS transition 驱动） ==========
+function deselectPerson() {
+    if (!selectedZone) return;
+    const wrap = document.getElementById('lightbox-img-wrap');
+
+    // 回到无偏移无缩放状态 —— CSS transition 自动补间动画
+    wrap.style.transform = 'translate(0px, 0px) scale(1)';
+    // transformOrigin 保持不变 ('0 0')，确保和聚焦时一致，动画不跳变
+    wrap.classList.remove('zoomed');
+
+    document.getElementById('profile-card').style.display = 'none';
+    document.querySelectorAll('.lb-hotzone.active').forEach(el => el.classList.remove('active'));
+    selectedZone = null;
+}
+
+// ========== 单张图片/视频查看器（含上传者、滚轮缩放、下载） ==========
+function viewFullImage(url, isVideo, uploader) {
+    const lb = document.getElementById('lightbox');
+    const bodyEl = document.getElementById('lightbox-body');
+    const imgWrap = document.getElementById('lightbox-img-wrap');
+    const img = document.getElementById('lightbox-img');
+    const zoneLayer = document.getElementById('hotzones-layer');
+    const card = document.getElementById('profile-card');
+
+    // 隐藏热区和信息卡
+    zoneLayer.innerHTML = '';
+    imgWrap.classList.remove('zoomed');
+    imgWrap.style.transform = '';
+    imgWrap.style.transformOrigin = '';
+
+    // 信息卡改为上传者信息 + 下载按钮
+    if (uploader) {
+        card.innerHTML = `<div style="padding:0;">
+            <h3 style="color:#ffdd57;margin-bottom:0.3rem;">📤 ${uploader} 上传</h3>
+            <p style="color:#aaa;font-size:0.8rem;margin-bottom:0.8rem;">${window._currentTargetName || ''} 的公开分享</p>
+            ${!isVideo ? `<a id="hz-dl-btn" href="${url}" download style="display:inline-block;padding:0.4rem 1rem;background:#667eea;color:white;border-radius:20px;text-decoration:none;font-size:0.85rem;">⬇️ 下载图片</a>` : ''}
+            <p style="color:#888;font-size:0.7rem;margin-top:0.8rem;">🖱️ 滚轮缩放 · 点空白处关闭</p>
+        </div>`;
+        card.style.display = 'flex';
+    } else {
+        card.style.display = 'none';
+    }
+
+    if (isVideo) {
+        imgWrap.innerHTML = `<video src="${url}" controls autoplay style="max-width:85vw;max-height:75vh;border-radius:8px;display:block;"></video>`;
+    } else {
+        if (imgWrap.querySelector('video')) {
+            imgWrap.innerHTML = `<img id="lightbox-img" src="${url}" alt="" style="max-width:85vw;max-height:75vh;display:block;border-radius:8px;cursor:zoom-in;"><div id="hotzones-layer"></div>`;
+        } else {
+            img.src = url;
+            img.style.cursor = 'zoom-in';
+            img.style.maxWidth = '85vw';
+            img.style.maxHeight = '75vh';
+        }
+    }
+
+    lb.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    selectedZone = null;
+    document.querySelectorAll('.lb-hotzone.active').forEach(el => el.classList.remove('active'));
+
+    // 滚轮缩放 + 拖拽平移（仅图片）
+    if (!isVideo) {
+        let scale = 1, tx = 0, ty = 0;
+        let dragging = false, dsx = 0, dsy = 0, otx = 0, oty = 0;
+        const getEl = () => document.getElementById('lightbox-img');
+        const lb = document.getElementById('lightbox');
+
+        const applyPanZoom = function() {
+            const el = getEl();
+            if (!el) return;
+            el.style.transform = `scale(${scale}) translate(${tx}px, ${ty}px)`;
+        };
+
+        const onWheel = function(e) {
+            const el = getEl();
+            if (!el || selectedZone) return;
+            e.preventDefault();
+            scale = Math.min(Math.max(scale - e.deltaY * 0.002, 0.5), 5);
+            el.style.cursor = scale > 1.2 ? 'grab' : 'zoom-in';
+            applyPanZoom();
+        };
+
+        const onMouseDown = function(e) {
+            if (scale <= 1.2 || selectedZone) return;
+            if (e.target !== getEl()) return;
+            e.preventDefault();
+            dragging = true; dsx = e.clientX; dsy = e.clientY; otx = tx; oty = ty;
+            getEl().style.cursor = 'grabbing';
+        };
+
+        const onMouseMove = function(e) {
+            if (!dragging) return;
+            tx = otx + (e.clientX - dsx) / scale;
+            ty = oty + (e.clientY - dsy) / scale;
+            applyPanZoom();
+        };
+
+        const onMouseUp = function() {
+            if (dragging) { dragging = false; const el = getEl(); if (el) el.style.cursor = 'grab'; }
+        };
+
+        lb.addEventListener('wheel', onWheel, {passive: false});
+        lb.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+
+        lb._wheelHandler = onWheel;
+        lb._mouseDownHandler = onMouseDown;
+        lb._mouseMoveHandler = onMouseMove;
+        lb._mouseUpHandler = onMouseUp;
+    }
+}
+
+// 存储当前查看的目标用户名（在 renderProfileCard 中被设置）
+
+// ========== 键盘关闭 ==========
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (selectedZone) {
+            deselectPerson();
+        } else {
+            closeLightbox();
+        }
+    }
+});
+</script>
+{% endblock %}

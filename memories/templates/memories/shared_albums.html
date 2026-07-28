@@ -1,0 +1,28 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+        <h2>👥 共同相册</h2>
+        <a class="btn" href="{% url 'shared_album_create' %}">➕ 创建共同相册</a>
+    </div>
+    {% if albums %}
+    <div class="grid">
+    {% for album in albums %}
+        <a href="{% url 'shared_album_detail' album_id=album.id %}" class="card" style="text-decoration:none;color:inherit;display:block;">
+            <div style="width:100%;height:160px;border-radius:12px;overflow:hidden;margin-bottom:0.5rem;background:#eee;">
+                {% with cover=album.photos.first %}
+                {% if cover and cover.image %}<img src="{{ cover.image.url }}" style="width:100%;height:100%;object-fit:cover;">
+                {% elif cover and cover.video %}<video src="{{ cover.video.url }}" style="width:100%;height:100%;object-fit:cover;"></video>
+                {% else %}<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3rem;">👥</div>{% endif %}
+                {% endwith %}
+            </div>
+            <h4>{{ album.name }}</h4>
+            <p style="color:#888;font-size:0.8rem;">{{ album.owner.display_name }} 创建 · {{ album.photos.count }} 张照片</p>
+        </a>
+    {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align:center;color:#888;">还没有共同相册，创建一个吧</p>
+    {% endif %}
+</div>
+{% endblock %}

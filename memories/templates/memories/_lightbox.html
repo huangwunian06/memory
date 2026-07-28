@@ -1,0 +1,27 @@
+<style>
+#img-modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2000}
+#img-modal img,#img-modal video{max-width:95vw;max-height:95vh;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:8px;user-select:none}
+#img-modal .close-btn{position:fixed;top:16px;right:24px;color:#fff;font-size:2rem;cursor:pointer;z-index:2001;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.15);border-radius:50%}
+#img-modal .dl-btn{position:fixed;top:16px;right:80px;color:#fff;font-size:1.2rem;cursor:pointer;z-index:2001;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.15);border-radius:50%;text-decoration:none}
+#img-modal .save-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-size:0.85rem;background:rgba(0,0,0,0.5);padding:6px 16px;border-radius:20px;pointer-events:none}
+</style>
+<div id="img-modal" onclick="closeM()">
+    <div class="close-btn" onclick="closeM()">&times;</div>
+    <a id="dl-btn" class="dl-btn" download href="#" title="下载">⬇</a>
+    <div id="img-modal-content"></div>
+    <div class="save-hint">🖱滚轮缩放 · ⬇下载 · 拖拽平移 · 点任意处关闭</div>
+</div>
+<script>
+var mS=1,mTX=0,mTY=0,mDragging=0,mDSX=0,mDSY=0,mOTX=0,mOTY=0,mIsVid=0;
+function applyT(){var e=document.getElementById('media-el');if(e)e.style.transform='translate(calc(-50% + '+mTX+'px), calc(-50% + '+mTY+'px)) scale('+mS+')';}
+function openM(u,isV){mS=1;mTX=0;mTY=0;mIsVid=isV;var c=document.getElementById('img-modal-content');var d=document.getElementById('dl-btn');
+if(isV){c.innerHTML='<video src="'+u+'" controls autoplay style="max-width:95vw;max-height:95vh;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:8px;" onclick="event.stopPropagation()"></video>';d.style.display='none';}
+else{c.innerHTML='<img id="media-el" src="'+u+'" style="max-width:95vw;max-height:95vh;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:8px;cursor:grab;" draggable="false" onclick="event.stopPropagation()">';d.style.display='flex';d.href=u;}
+document.getElementById('img-modal').style.display='block';document.body.style.overflow='hidden';}
+function closeM(){document.getElementById('img-modal').style.display='none';document.body.style.overflow='';mS=1;mTX=0;mTY=0;}
+document.getElementById('img-modal').addEventListener('wheel',function(e){if(mIsVid)return;e.preventDefault();mS=Math.min(Math.max(mS-e.deltaY*0.002,0.5),5);var el=document.getElementById('media-el');if(el)el.style.cursor=mS>1.2?'grab':'zoom-in';applyT();},{passive:false});
+document.getElementById('img-modal').addEventListener('mousedown',function(e){if(mIsVid||mS<=1.2||e.target.id!=='media-el')return;e.preventDefault();mDragging=1;mDSX=e.clientX;mDSY=e.clientY;mOTX=mTX;mOTY=mTY;e.target.style.cursor='grabbing';});
+document.addEventListener('mousemove',function(e){if(!mDragging)return;mTX=mOTX+(e.clientX-mDSX);mTY=mOTY+(e.clientY-mDSY);applyT();});
+document.addEventListener('mouseup',function(){if(mDragging){mDragging=0;var el=document.getElementById('media-el');if(el)el.style.cursor='grab';}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeM();});
+</script>

@@ -1,0 +1,39 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="auth-wrapper" style="min-height:80vh; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+  <div class="card" style="width:100%; max-width:450px; backdrop-filter: blur(10px); background: rgba(255,255,255,0.9);">
+    {% if step == 'verify' %}
+    <!-- 第一步：验证邀请码 -->
+    <h2 style="text-align:center; color:#667eea;">🔐 验证邀请码</h2>
+    <p style="text-align:center;color:#888;">请输入班级邀请码以继续注册</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="verify">
+      <label>邀请码：</label><input type="text" name="invite_code" required placeholder="输入邀请码"><br><br>
+      <button class="btn" type="submit" style="width:100%;">验证</button>
+    </form>
+    {% else %}
+    <!-- 第二步：填写注册信息 -->
+    <h2 style="text-align:center; color:#667eea;">📝 同学注册</h2>
+    <p style="text-align:center;color:#888;">邀请码已验证通过</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="register">
+      <label>用户名：</label><input type="text" name="username" required><br><br>
+      <label>密码：</label><input type="password" name="password" required><br><br>
+      <label>选择姓名：</label>
+      <select name="display_name" required>
+        <option value="">-- 请选择 --</option>
+        {% for name in available_names %}
+        <option value="{{ name.name }}">{{ name.name }}</option>
+        {% endfor %}
+      </select><br><br>
+      <label>上传本人清晰正面照（用于人脸识别，必填）：</label>
+      <input type="file" name="face_photo" accept="image/*" capture="environment" required><br><br>
+      <button class="btn" type="submit" style="width:100%;">注册</button>
+    </form>
+    {% endif %}
+    <p style="text-align:center;">已有账号？<a href="{% url 'login' %}">去登录</a></p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="auth-wrapper" style="min-height:80vh; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+  <div class="card" style="width:100%; max-width:400px; backdrop-filter: blur(10px); background: rgba(255,255,255,0.9);">
+    <h2 style="text-align:center; color:#667eea;">🔐 同学登录</h2>
+    <form method="post">
+      {% csrf_token %}
+      <label>用户名：</label><input type="text" name="username" required><br><br>
+      <label>密码：</label><input type="password" name="password" required><br><br>
+      <button class="btn" type="submit" style="width:100%;">登录</button>
+    </form>
+    <p style="text-align:center;">还没有账号？<a href="{% url 'register' %}">去注册</a></p>
+  </div>
+</div>
+{% endblock %}

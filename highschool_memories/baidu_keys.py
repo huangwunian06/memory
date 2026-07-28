@@ -1,0 +1,4 @@
+# 百度云人脸识别配置
+BAIDU_APP_ID = '124036678'
+BAIDU_API_KEY = '3SOnTpzuNR2DcT2IFipJyS8L'
+BAIDU_SECRET_KEY = 'w67cStjLoHn2q7lmLc8uXczbdBvmr9Ha'

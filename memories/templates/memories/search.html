@@ -1,0 +1,66 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;">
+    <h2>🔍 搜索</h2>
+    <form method="get" style="margin-bottom:1.5rem;">
+        <input type="text" name="q" value="{{ q }}" placeholder="搜索人名、照片描述、事件、相册..." style="width:100%;max-width:500px;font-size:1.1rem;">
+        <button class="btn" type="submit">搜索</button>
+    </form>
+    {% if q %}
+        {% if results_people %}
+        <h3>👤 同学 ({{ results_people|length }})</h3>
+        <div class="grid">
+        {% for p in results_people %}
+            <a href="{% url 'space' display_name=p.display_name %}" class="card" style="text-decoration:none;color:inherit;display:block;">
+                <strong>{% if not p.is_registered %}📋 {% endif %}{{ p.display_name }}</strong>
+                {% if p.bio %}<p style="color:#888;font-size:0.85rem;">{{ p.bio|truncatechars:50 }}</p>{% endif %}
+            </a>
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% if results_events %}
+        <h3>📅 事件 ({{ results_events|length }})</h3>
+        <div class="grid">
+        {% for e in results_events %}
+            <a href="{% url 'event_detail' event_id=e.id %}" class="card" style="text-decoration:none;color:inherit;">
+                <strong>{{ e.title }}</strong>
+                <p style="color:#888;font-size:0.85rem;">{{ e.event_date }}</p>
+            </a>
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% if results_albums %}
+        <h3>📁 相册 ({{ results_albums|length }})</h3>
+        <div class="grid">
+        {% for a in results_albums %}
+            <a href="{% url 'album_detail' album_id=a.id %}" class="card" style="text-decoration:none;color:inherit;">
+                <strong>{{ a.name }}</strong>
+                <p style="color:#888;font-size:0.85rem;">{{ a.owner.display_name }} · {{ a.photos.count }} 张</p>
+            </a>
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% if results_uploaders %}
+        <h3>📸 {{ uploader_name }} 上传的照片 ({{ results_uploaders|length }})</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+        {% for p in results_uploaders %}
+            {% if p.image %}<img src="{{ p.image.url }}" loading="lazy" onclick="openM('{{ p.image.url }}', false)" style="width:100px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;" title="点击放大">
+            {% elif p.video %}<video src="{{ p.video.url }}" style="width:100px;height:80px;object-fit:cover;border-radius:8px;"></video>{% endif %}
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% if results_photos %}
+        <h3>🖼️ 照片 ({{ results_photos|length }})</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+        {% for p in results_photos %}
+            {% if p.image %}<img src="{{ p.image.url }}" loading="lazy" onclick="openM('{{ p.image.url }}', false)" style="width:100px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;" title="点击放大">
+            {% elif p.video %}<video src="{{ p.video.url }}" style="width:100px;height:80px;object-fit:cover;border-radius:8px;"></video>{% endif %}
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% if not results_people and not results_photos and not results_events and not results_albums and not results_uploaders %}
+        <p style="color:#888;">未找到匹配结果</p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

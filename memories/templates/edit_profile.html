@@ -1,0 +1,14 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="card" style="max-width:500px; margin:0 auto;">
+    <h2>编辑个人信息</h2>
+    <form method="post">
+        {% csrf_token %}
+        <label>个人简介：</label><br>
+        <textarea name="bio" rows="4" style="width:100%">{{ profile.bio }}</textarea><br><br>
+        <label>生日：</label>
+        <input type="date" name="birthday" value="{{ profile.birthday|date:'Y-m-d' }}"><br><br>
+        <button class="btn" type="submit">保存</button>
+    </form>
+</div>
+{% endblock %}

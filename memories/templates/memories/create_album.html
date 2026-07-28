@@ -1,0 +1,13 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="card" style="max-width:500px; margin:0 auto;">
+    <h2>创建新相册</h2>
+    <form method="post">
+        {% csrf_token %}
+        <label>相册名称：</label><input type="text" name="name" required><br><br>
+        <label>描述：</label><textarea name="description"></textarea><br><br>
+        <label>是否公开到公共板块：</label><input type="checkbox" name="is_public"><br><br>
+        <button class="btn" type="submit">创建</button>
+    </form>
+</div>
+{% endblock %}

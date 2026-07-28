@@ -1,0 +1,15 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="auth-wrapper" style="min-height:70vh; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);">
+  <div class="card" style="width:100%; max-width:450px; backdrop-filter: blur(10px); background: rgba(255,255,255,0.9);">
+    <h2 style="text-align:center; color:#667eea;">✨ 创建新事件</h2>
+    <form method="post">
+      {% csrf_token %}
+      <label>事件标题：</label><input type="text" name="title" required><br><br>
+      <label>描述：</label><textarea name="description" rows="3"></textarea><br><br>
+      <label>日期：</label><input type="date" name="event_date" required><br><br>
+      <button class="btn" type="submit" style="width:100%;">创建</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

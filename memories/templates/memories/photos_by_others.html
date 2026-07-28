@@ -1,0 +1,52 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<style>
+    .uploader-group { margin-bottom: 2rem; }
+    .uploader-group h3 { margin-bottom: 0.5rem; }
+    .uploader-group h3 a { color: #667eea; text-decoration: none; }
+    .uploader-group h3 a:hover { text-decoration: underline; }
+    .preview-row { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; }
+    .preview-row a { flex: 0 0 100px; }
+    .preview-row img, .preview-row video { width: 100px; height: 80px; object-fit: cover; border-radius: 8px; }
+    .more-link { font-size: 0.85rem; color: #667eea; }
+</style>
+
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;">
+    <h2>📸 他人为 {{ target.display_name }} 上传的照片</h2>
+
+    {% if groups %}
+        {% for name, data in groups.items %}
+        <div class="uploader-group">
+            <h3>
+                <a href="{% url 'photos_by_uploader' display_name=target.display_name uploader_name=name %}">
+                    👤 {{ name }} 为TA上传的照片
+                </a>
+                <span style="color:#999;font-size:0.85rem;">（共 {{ data.total }} 张）</span>
+            </h3>
+            <div class="preview-row">
+                {% for p in data.photos %}
+                <a href="{% url 'photos_by_uploader' display_name=target.display_name uploader_name=name %}">
+                    {% if p.video %}
+                    <video src="{{ p.video.url }}" preload="metadata" style="width:100px;height:80px;object-fit:cover;border-radius:8px;"></video>
+                    {% else %}
+                    <img src="{{ p.image.url }}" alt="{{ p.caption }}" loading="lazy" onclick="event.preventDefault();openM('{{ p.image.url }}', false)" style="cursor:pointer;" title="点击放大">
+                    {% endif %}
+                </a>
+                {% endfor %}
+                {% if data.total > 4 %}
+                {% with remaining=data.total|add:-4 %}
+                <a href="{% url 'photos_by_uploader' display_name=target.display_name uploader_name=name %}" class="more-link" style="display:flex;align-items:center;">+{{ remaining }} 更多 →</a>
+                {% endwith %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card" style="text-align:center;">
+            <p>还没有人为TA上传照片</p>
+        </div>
+    {% endif %}
+
+    <p style="margin-top:2rem;"><a href="{% url 'home' %}">← 返回合照</a> ｜ <a href="{% url 'space' display_name=target.display_name %}">{{ target.display_name }} 的个人空间</a></p>
+</div>
+{% endblock %}

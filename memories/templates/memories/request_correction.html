@@ -1,0 +1,13 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="card" style="max-width:500px; margin:0 auto;">
+    <h2>请求修正照片归属</h2>
+    <img src="{{ photo.image.url }}" style="max-width:100%; border-radius:8px;">
+    <p>当前照片上传者：{{ photo.uploaded_by.display_name }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <label>正确同学的姓名：</label><input type="text" name="suggested_username" required placeholder="输入正确的班级姓名"><br><br>
+        <button class="btn" type="submit">提交修正</button>
+    </form>
+</div>
+{% endblock %}

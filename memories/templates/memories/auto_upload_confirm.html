@@ -1,0 +1,24 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;max-width:700px;margin:0 auto;">
+    <h2>✅ 自动上传完成</h2>
+    <p style="color:#888;">{{ uploader_name }} 上传了 {{ results|length }} 个文件，归类结果如下：</p>
+    {% for r in results %}
+    <div class="card" style="padding:1rem;">
+        <strong>{{ r.file }}</strong>
+        {% if r.is_video %}<span style="color:#667eea;">🎬 视频</span>{% endif %}
+        <p style="margin:0.3rem 0;color:#555;">归入：
+        {% for t in r.targets %}
+            <span style="background:#e8f4fd;padding:2px 10px;border-radius:12px;font-size:0.85rem;">{{ t }}</span>
+        {% endfor %}
+        </p>
+        <a href="{% url 'photo_detail' photo_id=r.photo_id %}" style="font-size:0.8rem;color:#667eea;">查看照片 →</a>
+        <span style="color:#888;font-size:0.75rem;margin-left:0.5rem;">识别有误？在照片详情页可手动修正归属</span>
+    </div>
+    {% endfor %}
+    <div style="margin-top:1.5rem;">
+        <a class="btn" href="{% url 'auto_upload' %}">继续上传</a>
+        <a class="btn" href="{% url 'home' %}">返回首页</a>
+    </div>
+</div>
+{% endblock %}

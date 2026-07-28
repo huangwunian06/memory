@@ -1,0 +1,35 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="card" style="max-width:500px; margin:0 auto;">
+    {% if target_name %}
+    <h2>📤 为 {{ target_name }} 上传</h2>
+    <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">将上传到你为 {{ target_name }} 创建的相册中</p>
+    {% else %}
+    <h2>上传照片/视频</h2>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label>选择相册：</label>
+        <select name="album_id">
+            <option value="">不放入相册（直接归入公开分享）</option>
+            {% if target_name %}
+                {% for album in target_albums %}
+                <option value="{{ album.id }}">{{ album.name }}</option>
+                {% endfor %}
+            {% else %}
+                {% for album in albums %}
+                <option value="{{ album.id }}" {% if request.GET.album_id == album.id|stringformat:"s" %}selected{% endif %}>{{ album.name }}</option>
+                {% endfor %}
+            {% endif %}
+        </select><br><br>
+        <label>选择图片（可多选）：</label>
+        <input type="file" name="images" multiple accept="image/*"><br><br>
+        <label>选择视频（可多选）：</label>
+        <input type="file" name="videos" multiple accept="video/*"><br><br>
+        <label>说明：</label><input type="text" name="caption"><br><br>
+        <label>详细描述（可被搜索）：</label><textarea name="description" rows="2" style="width:100%;max-width:100%;"></textarea><br><br>
+        <label>留言（对方可见）：</label><textarea name="message" rows="2" style="width:100%;max-width:100%;" placeholder="想对TA说的话..."></textarea><br><br>
+        <button class="btn" type="submit">上传</button>
+    </form>
+</div>
+{% endblock %}

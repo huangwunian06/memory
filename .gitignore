@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+db.sqlite3
+/media/
+/static/
+*.exe
+cloudflared*
+.vscode/
+node_modules/

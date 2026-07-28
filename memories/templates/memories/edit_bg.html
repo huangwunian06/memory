@@ -1,0 +1,16 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<div class="card" style="max-width:500px; margin:0 auto;">
+    <h2>自定义背景</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <h3>个人空间背景</h3>
+        <input type="file" name="bg_image" accept="image/*"><br>
+        {% if profile.bg_image %}<img src="{{ profile.bg_image.url }}" style="max-width:200px;"><br>{% endif %}
+        <h3>全站通用背景</h3>
+        <input type="file" name="global_bg" accept="image/*"><br>
+        {% if profile.global_bg %}<img src="{{ profile.global_bg.url }}" style="max-width:200px;"><br>{% endif %}
+        <button class="btn" type="submit">上传</button>
+    </form>
+</div>
+{% endblock %}
