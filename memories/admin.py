@@ -401,13 +401,16 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
             return f'📷 {obj.image.name.split("/")[-1]}'
 
     def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
+        try:
+            super().save_model(request, obj, form, change)
+        except Exception as e:
+            self.message_user(request, f'❌ 保存失败: {str(e)}', level='error')
+            return
         if not obj.image:
             return
         from .utils import get_face_client, log_activity
         import base64
 
-        # 查找是否已注册
         profile = Profile.objects.filter(display_name=obj.roster.name).first()
         user_id = f'roster{obj.roster.id}'
         if profile and profile.user:
@@ -427,8 +430,7 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
                     profile.face_token = result['result'].get('face_token', profile.face_token or '')
                     profile.save()
                 self.message_user(request, f'✅ {obj.roster.name} 人脸注册成功！')
-                log_activity(profile or obj.roster, '人脸注册', f'{obj.roster.name}训练照注册成功')
             else:
-                self.message_user(request, f'❌ 人脸注册失败: [{err_code}] {err_msg}', level='error')
+                self.message_user(request, f'❌ [{err_code}] {err_msg}', level='error')
         except Exception as e:
-            self.message_user(request, f'❌ 异常: {str(e)}', level='error')
+            self.message_user(request, f'❌ Baidu调用异常: {str(e)}', level='error')
