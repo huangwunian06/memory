@@ -409,7 +409,7 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
                 client = get_face_client()
                 with open(obj.image.path, 'rb') as f:
                     img_b64 = base64.b64encode(f.read()).decode()
-                result = client.addUser(img_b64, 'BASE64', 'class_group', obj.profile.user.username)
+                result = client.addUser(img_b64, 'BASE64', 'class_group', f'user{obj.profile.user.id}')
                 err_code = result.get('error_code', -1)
                 err_msg = result.get('error_msg', '未知')
                 if err_code == 0:

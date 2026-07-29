@@ -77,7 +77,7 @@ def register(request):
                 client = get_face_client()
                 face_photo.seek(0)
                 img_b64 = base64.b64encode(face_photo.read()).decode()
-                result = client.addUser(img_b64, 'BASE64', 'class_group', username)
+                result = client.addUser(img_b64, 'BASE64', 'class_group', f'user{user.id}')
                 err_code = result.get('error_code', -1)
                 if err_code == 0:
                     profile.face_token = result['result'].get('face_token', '')
@@ -772,7 +772,8 @@ def auto_upload(request, target_name=None):
                     sr = client.search(img_b64, 'BASE64', 'class_group', options={'max_user_num': 3})
                     if sr['error_code'] == 0:
                         for u in sr['result'].get('user_list', []):
-                            p = Profile.objects.filter(user__username=u['user_id']).first()
+                            uid_num = u['user_id'].replace('user', '')
+                            p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
                             if p and p not in targets: targets.append(p)
                 except: pass
             if not targets:
