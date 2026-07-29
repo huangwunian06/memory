@@ -78,11 +78,6 @@ def register(request):
                 client = get_face_client()
                 face_photo.seek(0)
                 img_b64 = base64.b64encode(face_photo.read()).decode()
-                # 如果此人之前以 roster{id} 注册过，先删除旧记录
-                roster_entry = PendingRegistration.objects.filter(name=display_name).first()
-                if roster_entry:
-                    try: client.faceDelete('class_group', f'roster{roster_entry.id}')
-                    except: pass
                 result = client.addUser(img_b64, 'BASE64', 'class_group', f'user{user.id}')
                 err_code = result.get('error_code', -1)
                 if err_code == 0:
