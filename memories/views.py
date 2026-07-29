@@ -781,16 +781,17 @@ def auto_upload(request, target_name=None):
                     try:
                         img = PILImage.open(f); img.thumbnail((1920, 1920), PILImage.LANCZOS)
                         out = io.BytesIO(); img.save(out, format='JPEG', quality=85)
-                        out.seek(0); f.file = out; f.size = out.tell()
+                        from django.core.files.base import ContentFile
+                        f = ContentFile(out.getvalue(), name=f.name)
                     except: pass
                 is_video = ext in {'.mp4', '.mov', '.avi', '.webm', '.mkv'}
                 targets = [target] if target else []
                 search_log = ''
                 if not targets and not is_video:
                     try:
-                        f.file.seek(0)
+                        f.seek(0)
                         client = get_face_client()
-                        img_b64 = base64.b64encode(f.file.read()).decode(); f.file.seek(0)
+                        img_b64 = base64.b64encode(f.read()).decode(); f.seek(0)
                         sr = client.search(img_b64, 'BASE64', 'class_group', options={'max_user_num': 3})
                         if sr['error_code'] == 0:
                             for u in sr['result'].get('user_list', []):
@@ -804,12 +805,12 @@ def auto_upload(request, target_name=None):
                     except Exception as e:
                         search_log = f'搜索异常:{str(e)[:100]}'
                     finally:
-                        try: f.file.seek(0)
+                        try: f.seek(0)
                         except: pass
 
                 if targets:
                     for t in targets:
-                        f.file.seek(0)
+                        f.seek(0)
                         album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
                         album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
                         photo = Photo.objects.create(album=album, uploaded_by=uploader,
