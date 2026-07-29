@@ -259,6 +259,21 @@ class Comment(models.Model):
         return f'{self.author.display_name}: {self.content[:30]}'
 
 
+# ========== 人脸训练数据 ==========
+class FaceTrainingPhoto(models.Model):
+    profile = models.ForeignKey('Profile', on_delete=models.CASCADE, related_name='training_photos', verbose_name='所属同学')
+    image = models.ImageField(upload_to='face_training/', verbose_name='训练照片')
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
+    is_registered = models.BooleanField(default=False, verbose_name='已注册到百度')
+
+    class Meta:
+        verbose_name = '人脸训练库'
+        verbose_name_plural = '人脸训练库'
+
+    def __str__(self):
+        return f'{self.profile.display_name} 训练照 #{self.id}'
+
+
 # ========== 行为日志 ==========
 class ActivityLog(models.Model):
     user = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='用户')

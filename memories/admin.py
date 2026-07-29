@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.db.models.functions import Round
 from django.template.response import TemplateResponse
-from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment
+from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment, FaceTrainingPhoto
 
 # 重写 admin 首页加磁盘用量
 _original_index = admin.site.index
@@ -30,20 +30,8 @@ admin.site.index = index_with_storage
 # ========== 个人档案 ==========
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    """
-    个人档案管理 —— 每位注册同学的个人资料。
-    ★ 训练基地：点击进入用户详情，可上传额外基准照充实人脸识别数据。
-    """
     list_display = ('display_name', 'user', 'face_status', 'created_at')
     search_fields = ('display_name', 'user__username')
-    fieldsets = (
-        ('基本信息', {'fields': ('user', 'display_name', 'birthday', 'bio')}),
-        ('人脸识别 · 训练基地', {
-            'fields': ('face_token', 'bg_image'),
-            'description': 'face_token=百度人脸标识。上传bg_image可作为补充训练照——每次保存时自动将该图注册到百度人脸库。'
-        }),
-        ('全站背景', {'fields': ('global_bg',)}),
-    )
     readonly_fields = ('face_token',)
 
     @admin.display(description='人脸数据')
@@ -51,23 +39,6 @@ class ProfileAdmin(admin.ModelAdmin):
         if obj.face_token:
             return '✅ 已注册'
         return '⬜ 未注册'
-
-    def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
-        # 如果上传了bg_image且是人脸训练用途，注册到百度
-        if obj.bg_image and obj.user:
-            try:
-                from .utils import get_face_client
-                import base64
-                client = get_face_client()
-                with open(obj.bg_image.path, 'rb') as f:
-                    img_b64 = base64.b64encode(f.read()).decode()
-                result = client.addUser(img_b64, 'BASE64', 'class_group', obj.user.username)
-                if result['error_code'] == 0:
-                    obj.face_token = result['result'].get('face_token', obj.face_token or '')
-                    super().save_model(request, obj, form, change)
-            except Exception as e:
-                pass
 
 
 # ========== 邀请码 ==========
@@ -412,3 +383,37 @@ class ActivityLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(FaceTrainingPhoto)
+class FaceTrainingPhotoAdmin(admin.ModelAdmin):
+    """
+    人脸训练库 —— 管理每位同学的人脸识别训练数据。
+    上传照片后自动注册到百度人脸库 class_group。
+    """
+    list_display = ('profile', 'image_preview', 'is_registered', 'uploaded_at')
+    list_filter = ('is_registered', 'profile')
+    search_fields = ('profile__display_name',)
+
+    @admin.display(description='预览')
+    def image_preview(self, obj):
+        if obj.image:
+            return f'📷 {obj.image.name.split("/")[-1]}'
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.image and obj.profile.user:
+            try:
+                from .utils import get_face_client
+                import base64
+                client = get_face_client()
+                with open(obj.image.path, 'rb') as f:
+                    img_b64 = base64.b64encode(f.read()).decode()
+                result = client.addUser(img_b64, 'BASE64', 'class_group', obj.profile.user.username)
+                if result['error_code'] == 0:
+                    obj.is_registered = True
+                    obj.profile.face_token = result['result'].get('face_token', obj.profile.face_token or '')
+                    obj.profile.save()
+                    obj.save()
+            except Exception as e:
+                pass
