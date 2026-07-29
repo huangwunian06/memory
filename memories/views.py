@@ -286,8 +286,15 @@ def upload_photo(request):
             album, _ = Album.objects.get_or_create(owner=request.user.profile, name='我的照片', defaults={'is_public': True, 'album_type': 'personal'})
         img_count = 0
         vid_count = 0
+        from PIL import Image as PILImage
         for f in files:
             ext = os.path.splitext(f.name)[1].lower()
+            if ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                try:
+                    im = PILImage.open(f); im.thumbnail((1920, 1920), PILImage.LANCZOS)
+                    out = io.BytesIO(); im.save(out, format='JPEG', quality=85)
+                    f.file = out; f.size = out.tell()
+                except: pass
             if ext in VIDEO_EXTS:
                 Photo.objects.create(
                     album=album, uploaded_by=request.user.profile,
@@ -648,8 +655,15 @@ def shared_album_upload(request, album_id):
         caption = request.POST.get('caption', '')
         VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.webm', '.mkv'}
         count = 0
+        from PIL import Image as PILImage
         for f in files:
             ext = os.path.splitext(f.name)[1].lower()
+            if ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                try:
+                    im = PILImage.open(f); im.thumbnail((1920, 1920), PILImage.LANCZOS)
+                    out = io.BytesIO(); im.save(out, format='JPEG', quality=85)
+                    f.file = out; f.size = out.tell()
+                except: pass
             Photo.objects.create(album=album, uploaded_by=request.user.profile,
                 image=f if ext not in VIDEO_EXTS else None,
                 video=f if ext in VIDEO_EXTS else None, caption=caption)
