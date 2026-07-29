@@ -775,7 +775,8 @@ def auto_upload(request, target_name=None):
                             uid_num = u['user_id'].replace('user', '')
                             p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
                             if p and p not in targets: targets.append(p)
-                except: pass
+                except Exception as e:
+                    log_activity(uploader, '人脸搜索异常', str(e))
             if not targets:
                 # 未识别到人脸 → 不自动归入，标记为待手动处理
                 results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': None, 'pending': True})
