@@ -7,11 +7,6 @@
     }
     .upload-intro h3 { color: #667eea; margin-bottom: 0.5rem; }
     .upload-intro ol { padding-left: 1.2rem; line-height: 1.8; color: #555; }
-    .face-canvas-wrap { position: relative; margin: 1rem 0; display: none; }
-    .face-canvas-wrap canvas { max-width: 100%; border-radius: 12px; cursor: crosshair; }
-    .face-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
-    .face-tag { background: rgba(255,23,68,0.15); border: 1px solid #ff1744; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; cursor: pointer; }
-    .face-tag.selected { background: rgba(78,203,113,0.2); border-color: #4ecb71; }
 </style>
 
 <div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;max-width:700px;margin:0 auto;">
@@ -25,7 +20,7 @@
             <li>系统<b>自动检测照片中的人脸</b>并尝试识别是谁</li>
             <li>识别成功的照片自动归入对应同学的相册</li>
             <li>如果照片中有多个人，分别归入各自的相册</li>
-            <li>未识别到人脸的照片<b>不会自动归类</b>，提示你手动选择归属</li>
+            <li>未识别到人脸的照片<b>不会自动归类</b>，在下方手动选择归属</li>
         </ol>
     </div>
 
@@ -33,9 +28,21 @@
     <div style="background:#fff3cd;border-radius:12px;padding:1rem;margin-bottom:1rem;">
         <h4>⚠️ 待手动分配的照片 ({{ pending|length }})</h4>
         {% for p in pending %}
-        <div style="display:flex;align-items:center;gap:0.5rem;margin:0.3rem 0;">
-            <span style="flex:1;">📷 {{ p.image.name|default:p.video.name }}</span>
-            <a href="{% url 'auto_upload' %}" class="btn" style="font-size:0.75rem;padding:0.3rem 0.8rem;">去分配 →</a>
+        <div style="display:flex;align-items:center;gap:0.3rem;margin:0.4rem 0;flex-wrap:wrap;padding:0.4rem;background:rgba(0,0,0,0.03);border-radius:8px;">
+            <span style="flex:1;min-width:100px;font-size:0.85rem;">📷 {{ p.image.name|default:p.video.name }}</span>
+            <form method="post" style="display:flex;gap:0.3rem;align-items:center;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign">
+                <input type="hidden" name="photo_id" value="{{ p.id }}">
+                <input type="text" name="assign_to" list="rl-{{ forloop.counter }}" placeholder="搜索姓名" autocomplete="off"
+                    style="width:110px;padding:0.3rem;border-radius:6px;border:1px solid #ccc;font-size:0.8rem;"
+                    oninput="var v=this.value;var d=document.getElementById('rl-{{ forloop.counter }}');for(var o of d.options)o.style.display=o.value.indexOf(v)>=0?'':'none'">
+                <datalist id="rl-{{ forloop.counter }}">
+                    {% for name in all_names %}<option value="{{ name }}">{% endfor %}
+                </datalist>
+                <button class="btn" type="submit" style="font-size:0.7rem;padding:0.3rem 0.6rem;">确认</button>
+            </form>
+            <a href="{% url 'photo_delete' photo_id=p.id %}" style="color:#e74c3c;font-size:0.75rem;text-decoration:none;" onclick="return confirm('确定删除？')">🗑️</a>
         </div>
         {% endfor %}
     </div>
@@ -44,7 +51,7 @@
     <form method="post" enctype="multipart/form-data" id="auto-upload-form">
         {% csrf_token %}
         <label>选择照片（可多选）：</label>
-        <input type="file" name="images" multiple accept="image/*" required onchange="previewFaces(this)"><br><br>
+        <input type="file" name="images" multiple accept="image/*" required><br><br>
         <label>照片描述（可被搜索）：</label>
         <input type="text" name="caption" style="width:100%;max-width:100%;"><br><br>
         <label>留言（对方可见）：</label>
@@ -52,30 +59,4 @@
         <button class="btn" type="submit">🚀 自动上传并识别人脸</button>
     </form>
 </div>
-<script>
-function previewFaces(input) {
-    // 预览选中图片（简化版——完整人脸标注在后续迭代中实现）
-    if (!input.files || input.files.length === 0) return;
-    var container = document.getElementById('face-preview-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'face-preview-container';
-        container.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;';
-        input.parentNode.appendChild(container);
-    }
-    container.innerHTML = '';
-    for (var i = 0; i < Math.min(input.files.length, 6); i++) {
-        var reader = new FileReader();
-        (function(file) {
-            reader.onload = function(e) {
-                var wrap = document.createElement('div');
-                wrap.style.cssText = 'position:relative;width:100px;height:80px;';
-                wrap.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"><span style="position:absolute;bottom:2px;right:4px;background:rgba(0,0,0,0.6);color:white;font-size:0.65rem;padding:1px 5px;border-radius:8px;">' + file.name + '</span>';
-                container.appendChild(wrap);
-            };
-        })(input.files[i]);
-        reader.readAsDataURL(input.files[i]);
-    }
-}
-</script>
 {% endblock %}
