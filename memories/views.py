@@ -72,20 +72,25 @@ def register(request):
         face_photo = request.FILES.get('face_photo')
         if face_photo:
             try:
-                # 保存到训练库
                 from .models import FaceTrainingPhoto
-                FaceTrainingPhoto.objects.create(profile=profile, image=face_photo, is_registered=True)
+                tp = FaceTrainingPhoto.objects.create(profile=profile, image=face_photo)
                 client = get_face_client()
                 face_photo.seek(0)
                 img_b64 = base64.b64encode(face_photo.read()).decode()
                 result = client.addUser(img_b64, 'BASE64', 'class_group', username)
-                if result['error_code'] == 0:
+                err_code = result.get('error_code', -1)
+                if err_code == 0:
                     profile.face_token = result['result'].get('face_token', '')
                     profile.save()
+                    tp.is_registered = True
+                    tp.save()
+                    log_activity(profile, '人脸注册成功', '基准照已录入百度人脸库')
                 else:
-                    messages.warning(request, f'人脸注册失败: {result.get("error_msg","")}，后续可补传')
+                    log_activity(profile, '人脸注册失败', f'错误码{err_code}: {result.get("error_msg","")}')
+                    messages.warning(request, f'人脸注册失败(错误码{err_code})，管理员后续可补传')
             except Exception as e:
-                messages.warning(request, f'人脸注册异常: {e}，后续可补传')
+                log_activity(profile, '人脸注册异常', str(e))
+                messages.warning(request, f'人脸注册异常，管理员后续可补传')
         else:
             messages.warning(request, '未上传基准照，人脸识别功能将无法使用，后续可补传')
 
@@ -112,6 +117,7 @@ def password_reset(request):
             user.set_password(new_password)
             user.save()
             messages.success(request, '密码已重置，请登录')
+            log_activity(profile, '重置密码', f'{display_name} 重置了密码')
             return redirect('login')
         except User.DoesNotExist:
             messages.error(request, '用户名不存在')
@@ -356,6 +362,7 @@ def create_event(request):
             event_date=event_date,
             created_by=request.user.profile
         )
+        log_activity(request.user.profile, '创建事件', f'创建了时间线事件「{title}」')
         messages.success(request, '时间线节点创建成功')
         return redirect('timeline')
     return render(request, 'memories/create_event.html')
@@ -601,6 +608,7 @@ def photo_detail(request, photo_id):
         if content:
             from .models import Comment
             Comment.objects.create(photo=photo, author=request.user.profile, content=content)
+            log_activity(request.user.profile, '发表评论', f'在照片#{photo.id}下发表评论')
             messages.success(request, '评论已发表')
         return redirect('photo_detail', photo_id=photo.id)
     return render(request, 'memories/photo_detail.html', {'photo': photo, 'comments': comments})
@@ -783,5 +791,6 @@ def auto_upload(request, target_name=None):
                         title='有人为你自动上传了照片', message=f'{uploader.display_name} 为你上传了照片到「{album_name}」',
                         related_url=f'/album/{album.id}/', notification_type='public_photo')
             results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id})
+        log_activity(uploader, '自动上传', f'上传了 {len(results)} 个文件')
         return render(request, 'memories/auto_upload_confirm.html', {'results': results, 'uploader_name': uploader.display_name})
     return render(request, 'memories/auto_upload.html', {'target': target})

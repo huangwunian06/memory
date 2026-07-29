@@ -403,17 +403,25 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         if obj.image and obj.profile.user:
+            from .utils import get_face_client, log_activity
+            import base64
             try:
-                from .utils import get_face_client
-                import base64
                 client = get_face_client()
                 with open(obj.image.path, 'rb') as f:
                     img_b64 = base64.b64encode(f.read()).decode()
                 result = client.addUser(img_b64, 'BASE64', 'class_group', obj.profile.user.username)
-                if result['error_code'] == 0:
+                err_code = result.get('error_code', -1)
+                err_msg = result.get('error_msg', '未知')
+                if err_code == 0:
                     obj.is_registered = True
                     obj.profile.face_token = result['result'].get('face_token', obj.profile.face_token or '')
                     obj.profile.save()
                     obj.save()
+                    self.message_user(request, f'✅ {obj.profile.display_name} 人脸注册成功！', level='success')
+                    log_activity(obj.profile, '人脸注册', f'训练照注册成功')
+                else:
+                    self.message_user(request, f'❌ 人脸注册失败: [{err_code}] {err_msg}', level='error')
+                    log_activity(obj.profile, '人脸注册失败', f'错误码{err_code}: {err_msg}')
             except Exception as e:
-                pass
+                self.message_user(request, f'❌ 异常: {str(e)}', level='error')
+                log_activity(obj.profile, '人脸注册异常', str(e))
