@@ -749,11 +749,30 @@ def export_photos(request):
 def auto_upload(request, target_name=None):
     target = Profile.objects.filter(display_name=target_name).first() if target_name else None
     if request.method == 'POST':
+        action = request.POST.get('action', 'upload')
+        uploader = request.user.profile
+
+        # 手动分配归属
+        if action == 'assign':
+            photo_id = request.POST.get('photo_id')
+            assign_to = request.POST.get('assign_to')
+            photo = get_object_or_404(Photo, id=photo_id, uploaded_by=uploader, album__isnull=True)
+            album_name = f'{uploader.display_name}为{assign_to}自动上传的相册'
+            t = Profile.objects.filter(display_name=assign_to).first()
+            if not t:
+                t = uploader
+            album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
+            photo.album = album
+            photo.save()
+            log_activity(uploader, '手动分配归属', f'{photo.id} 分配给 {assign_to}')
+            messages.success(request, f'已分配到 {assign_to}')
+            return redirect('auto_upload')
+
+        # 上传流程
         files = request.FILES.getlist('images')
         caption = request.POST.get('caption', '')
         message = request.POST.get('message', '')
         from PIL import Image as PILImage
-        uploader = request.user.profile
         results = []
         for f in files:
             ext = os.path.splitext(f.name)[1].lower()
@@ -765,6 +784,7 @@ def auto_upload(request, target_name=None):
                 except: pass
             is_video = ext in {'.mp4', '.mov', '.avi', '.webm', '.mkv'}
             targets = [target] if target else []
+            search_log = ''
             if not targets and not is_video:
                 try:
                     client = get_face_client()
@@ -775,26 +795,46 @@ def auto_upload(request, target_name=None):
                             uid_num = u['user_id'].replace('user', '')
                             p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
                             if p and p not in targets: targets.append(p)
-                    if not targets and sr['error_code'] == 0:
-                        log_activity(uploader, '人脸搜索无匹配', f'百度未在class_group中找到匹配人脸')
+                        if not targets:
+                            search_log = '百度搜索成功但无匹配'
+                    else:
+                        ec = sr.get('error_code', '')
+                        em = sr.get('error_msg', '')
+                        search_log = f'百度搜索失败: 错误码{ec} {em}'
                 except Exception as e:
-                    log_activity(uploader, '人脸搜索异常', str(e))
-            if not targets:
-                # 未识别到人脸 → 不自动归入，标记为待手动处理
-                results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': None, 'pending': True})
-                continue
-            for t in targets:
-                album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
-                album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
-                photo = Photo.objects.create(album=album, uploaded_by=uploader,
+                    search_log = f'搜索异常: {str(e)}'
+
+            if targets:
+                for t in targets:
+                    album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
+                    album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
+                    photo = Photo.objects.create(album=album, uploaded_by=uploader,
+                        image=f if not is_video else None, video=f if is_video else None,
+                        caption=caption, message=message)
+                    if t.user and t != uploader:
+                        from .utils import create_notification
+                        create_notification(recipient_user=t.user, sender_profile=uploader,
+                            title='有人为你自动上传了照片', message=f'{uploader.display_name} 为你上传了照片到「{album_name}」',
+                            related_url=f'/album/{album.id}/', notification_type='public_photo')
+                log_activity(uploader, '自动上传匹配', f'{f.name} → {",".join([t.display_name for t in targets])}')
+                results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id, 'pending': False})
+            else:
+                # 保存为待处理（不归入任何相册）
+                photo = Photo.objects.create(album=None, uploaded_by=uploader,
                     image=f if not is_video else None, video=f if is_video else None,
                     caption=caption, message=message)
-                if t.user and t != uploader:
-                    from .utils import create_notification
-                    create_notification(recipient_user=t.user, sender_profile=uploader,
-                        title='有人为你自动上传了照片', message=f'{uploader.display_name} 为你上传了照片到「{album_name}」',
-                        related_url=f'/album/{album.id}/', notification_type='public_photo')
-            results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id})
-        log_activity(uploader, '自动上传', f'上传了 {len(results)} 个文件')
-        return render(request, 'memories/auto_upload_confirm.html', {'results': results, 'uploader_name': uploader.display_name})
-    return render(request, 'memories/auto_upload.html', {'target': target})
+                detail = f'{f.name}: {search_log}' if search_log else f'{f.name}: 未检测到人脸'
+                log_activity(uploader, '自动上传未匹配', detail)
+                results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': photo.id, 'pending': True})
+
+        from memories.models import PendingRegistration
+        all_names = list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True))
+        return render(request, 'memories/auto_upload_confirm.html', {
+            'results': results, 'uploader_name': uploader.display_name, 'all_names': all_names
+        })
+
+    # GET: 显示上传页，同时显示待处理照片
+    pending = Photo.objects.filter(uploaded_by=request.user.profile, album__isnull=True).order_by('-uploaded_at')
+    from memories.models import PendingRegistration
+    all_names = list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True))
+    return render(request, 'memories/auto_upload.html', {'target': target, 'pending': pending, 'all_names': all_names})
