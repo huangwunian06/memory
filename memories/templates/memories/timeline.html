@@ -1,213 +1,57 @@
 {% extends 'memories/base.html' %}
-{% load static %}
 {% block content %}
 <style>
-    #star-timeline {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: radial-gradient(ellipse at center, #0d1b2a 0%, #000 100%);
-        overflow: hidden; z-index: 0; cursor: grab;
+    #timeline-wrap {
+        background: rgba(255,255,255,0.85); border-radius: 16px; padding: 2rem; min-height: 80vh;
+        max-width: 700px; margin: 0 auto;
     }
-    #star-timeline:active { cursor: grabbing; }
-    .star-bg { position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%; opacity: 0.6; }
-    #timeline-canvas {
-        position: absolute; top: 0; left: 0;
-        transform-origin: 0 0; transition: transform 0.8s cubic-bezier(0.25,0.1,0.25,1);
+    .tl-year { margin-bottom: 2.5rem; }
+    .tl-year-title {
+        font-size: 1.5rem; font-weight: bold; color: #667eea;
+        padding-bottom: 0.3rem; border-bottom: 2px solid #667eea; margin-bottom: 1rem;
     }
-    .tl-node {
-        position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        cursor: pointer; transition: all 0.5s cubic-bezier(0.25,0.1,0.25,1);
-        text-align: center; color: white; font-weight: bold;
-        box-shadow: 0 0 20px rgba(102,126,234,0.5);
+    .tl-event {
+        position: relative; padding: 0.8rem 1rem 0.8rem 2rem; margin-bottom: 0.5rem;
+        border-left: 2px solid #e0e0e0; transition: all 0.3s;
+        cursor: pointer; border-radius: 0 8px 8px 0;
     }
-    .tl-node:hover { box-shadow: 0 0 40px rgba(102,126,234,0.9); }
-    .tl-level-0 { /* 学期 */
-        width: 120px; height: 120px; font-size: 1.1rem;
-        background: radial-gradient(circle, #667eea, #3b4fa0);
-        box-shadow: 0 0 40px rgba(102,126,234,0.7), 0 0 80px rgba(102,126,234,0.3);
+    .tl-event:hover { border-left-color: #667eea; background: rgba(102,126,234,0.05); }
+    .tl-event::before {
+        content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%);
+        width: 10px; height: 10px; border-radius: 50%; background: #667eea;
     }
-    .tl-level-1 { /* 月 */
-        width: 60px; height: 60px; font-size: 0.8rem;
-        background: radial-gradient(circle, #8b9cf7, #5a6fd6);
-        box-shadow: 0 0 15px rgba(139,156,247,0.5);
-    }
-    .tl-level-2 { /* 事件 */
-        width: 35px; height: 35px; font-size: 0.6rem;
-        background: radial-gradient(circle, #ffdd57, #e6a800);
-        color: #333; box-shadow: 0 0 10px rgba(255,221,87,0.5);
-    }
-    .tl-connector {
-        position: absolute; background: linear-gradient(90deg, rgba(102,126,234,0.1), rgba(102,126,234,0.4), rgba(102,126,234,0.1));
-        transform-origin: left center; pointer-events: none; height: 2px;
-    }
-    .tl-label { position: absolute; color: rgba(255,255,255,0.8); font-size: 0.75rem; white-space: nowrap; pointer-events: none; }
-    #timeline-controls {
-        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10;
-        display: flex; gap: 0.5rem; background: rgba(0,0,0,0.6); padding: 0.5rem 1rem; border-radius: 30px;
-    }
-    #timeline-controls button {
-        background: rgba(255,255,255,0.15); color: white; border: none; width: 40px; height: 40px;
-        border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: background 0.3s;
-    }
-    #timeline-controls button:hover { background: rgba(255,255,255,0.3); }
-    .tl-event-card {
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-        background: rgba(20,30,50,0.95); color: #eee; padding: 2rem;
-        border-radius: 20px; z-index: 100; max-width: 500px; width: 90%;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.6); display: none;
-    }
-    .tl-event-card h3 { color: #ffdd57; }
-    .tl-event-card .close { position: absolute; top: 12px; right: 16px; cursor: pointer; color: #aaa; font-size: 1.5rem; }
-    .tl-add-btn {
-        position: fixed; top: 80px; right: 24px; z-index: 10;
-        background: rgba(102,126,234,0.9); color: white; border: none;
-        padding: 0.6rem 1.2rem; border-radius: 25px; cursor: pointer; font-size: 0.9rem;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    .tl-event-title { font-weight: bold; color: var(--text); }
+    .tl-event-date { font-size: 0.8rem; color: #888; }
+    .tl-event-desc { font-size: 0.85rem; color: #666; margin-top: 0.2rem; }
+    .tl-empty { text-align: center; color: #888; padding: 3rem; }
+    a.tl-add-btn {
+        display: inline-block; background: #667eea; color: white; padding: 0.6rem 1.5rem;
+        border-radius: 25px; text-decoration: none; font-weight: 500; margin-bottom: 1.5rem;
     }
 </style>
 
-<div id="star-timeline">
-    <div id="timeline-canvas"></div>
+<div id="timeline-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <h2>📅 班级时间线</h2>
+        <a class="tl-add-btn" href="{% url 'create_event' %}">✨ 创建事件</a>
+    </div>
+
+    {% if events %}
+    {% regroup events by event_date.year as year_groups %}
+    {% for year in year_groups %}
+    <div class="tl-year">
+        <div class="tl-year-title">{{ year.grouper }} 年</div>
+        {% for event in year.list %}
+        <div class="tl-event" onclick="location.href='{% url 'event_detail' event.id %}'">
+            <div class="tl-event-title">{{ event.title }}</div>
+            <div class="tl-event-date">{{ event.event_date|date:"m-d" }} · {{ event.created_by.display_name }} 创建</div>
+            {% if event.description %}<div class="tl-event-desc">{{ event.description|truncatechars:60 }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="tl-empty">时间线上还没有事件，点击上方按钮创建第一个吧！</div>
+    {% endif %}
 </div>
-
-<div id="tl-event-card" class="tl-event-card">
-    <span class="close" onclick="closeEventCard()">&times;</span>
-    <div id="tl-event-content"></div>
-</div>
-
-<a class="tl-add-btn" href="{% url 'create_event' %}">✨ 创建事件</a>
-
-<div id="timeline-controls">
-    <button onclick="zoomTimeline(1.3)" title="放大">＋</button>
-    <button onclick="zoomTimeline(0.7)" title="缩小">－</button>
-    <button onclick="resetTimeline()" title="重置">↺</button>
-</div>
-
-<script>
-(function() {
-    var events = {{ events_json|safe }};
-    var canvas = document.getElementById('timeline-canvas');
-    var container = document.getElementById('star-timeline');
-    var scale = 1, panX = 0, panY = 0;
-    var isPanning = false, lastX = 0, lastY = 0;
-
-    // 生成星空背景
-    for (var i = 0; i < 200; i++) {
-        var star = document.createElement('div');
-        star.className = 'star-bg';
-        star.style.left = Math.random() * 100 + '%';
-        star.style.top = Math.random() * 100 + '%';
-        star.style.animationDelay = Math.random() * 3 + 's';
-        star.style.animation = 'fadeIn ' + (1 + Math.random() * 2) + 's ease-in-out infinite alternate';
-        container.appendChild(star);
-    }
-
-    // 按学期/季度分组事件
-    var groups = {};
-    events.forEach(function(e) {
-        var d = new Date(e.event_date);
-        var sem = d.getFullYear() + (d.getMonth() < 6 ? ' 上半年' : ' 下半年');
-        if (!groups[sem]) groups[sem] = [];
-        groups[sem].push(e);
-    });
-
-    // 渲染节点
-    var semesters = Object.keys(groups).sort();
-    var baseX = window.innerWidth / 2 - 300, baseY = window.innerHeight / 2;
-    var semSpacing = 280;
-    var html = '';
-
-    semesters.forEach(function(sem, si) {
-        var sx = baseX + si * semSpacing;
-        var sy = baseY;
-        html += '<div class="tl-node tl-level-0" style="left:' + sx + 'px;top:' + sy + 'px;" onclick="focusSemester(\'' + sem + '\',' + sx + ',' + sy + ')">' + sem + '</div>';
-        html += '<div class="tl-label" style="left:' + (sx + 130) + 'px;top:' + (sy + 40) + 'px;">' + groups[sem].length + ' 个事件</div>';
-
-        // 该学期内的月份/事件节点环绕
-        var months = {};
-        groups[sem].forEach(function(e) {
-            var m = new Date(e.event_date).getMonth() + 1 + '月';
-            if (!months[m]) months[m] = [];
-            months[m].push(e);
-        });
-        var mKeys = Object.keys(months);
-        mKeys.forEach(function(m, mi) {
-            var angle = (mi / mKeys.length) * Math.PI * 2 - Math.PI / 2;
-            var r = 120;
-            var mx = sx + 60 + Math.cos(angle) * r;
-            var my = sy + 60 + Math.sin(angle) * r;
-            html += '<div class="tl-node tl-level-1" style="left:' + mx + 'px;top:' + my + 'px;" onclick="showEvents(\'' + sem + ' - ' + m + '\',' + JSON.stringify(months[m].map(function(e){return e.title;})) + ')">' + m + '</div>';
-
-            // 事件小节点
-            months[m].forEach(function(ev, ei) {
-                var a2 = angle + (ei - 1) * 0.3;
-                var r2 = 70;
-                var ex = mx + 30 + Math.cos(a2) * r2;
-                var ey = my + 30 + Math.sin(a2) * r2;
-                html += '<div class="tl-node tl-level-2" style="left:' + ex + 'px;top:' + ey + 'px;" onclick="event.stopPropagation();openEvent(' + ev.id + ',\'' + ev.title.replace(/'/g,"\\'") + '\',\'' + ev.event_date + '\',\'' + (ev.description||'').replace(/'/g,"\\'") + '\')">●</div>';
-            });
-        });
-    });
-
-    canvas.innerHTML = html;
-    canvas.style.width = (baseX + semesters.length * semSpacing + 300) + 'px';
-    canvas.style.height = (window.innerHeight + 200) + 'px';
-    applyTransform();
-
-    // 平移缩放
-    container.addEventListener('mousedown', function(e) {
-        if (e.target.closest('.tl-node')) return;
-        isPanning = true; lastX = e.clientX; lastY = e.clientY;
-    });
-    document.addEventListener('mousemove', function(e) {
-        if (!isPanning) return;
-        panX += e.clientX - lastX; panY += e.clientY - lastY;
-        lastX = e.clientX; lastY = e.clientY;
-        applyTransform();
-    });
-    document.addEventListener('mouseup', function() { isPanning = false; });
-    container.addEventListener('wheel', function(e) {
-        e.preventDefault();
-        var ds = e.deltaY > 0 ? 0.85 : 1.15;
-        zoomTimeline(ds);
-    }, {passive: false});
-
-    // 触屏
-    var touchDist = 0;
-    container.addEventListener('touchstart', function(e) {
-        if (e.touches.length === 1) { isPanning = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; }
-        if (e.touches.length === 2) { touchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-    });
-    container.addEventListener('touchmove', function(e) {
-        if (e.touches.length === 1 && isPanning) { panX += e.touches[0].clientX - lastX; panY += e.touches[0].clientY - lastY; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; applyTransform(); }
-        if (e.touches.length === 2) { var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); zoomTimeline(d / touchDist); touchDist = d; }
-    });
-    container.addEventListener('touchend', function() { isPanning = false; });
-
-    window.zoomTimeline = function(ds) {
-        var cx = container.clientWidth / 2, cy = container.clientHeight / 2;
-        panX = cx - (cx - panX) * ds / scale;
-        panY = cy - (cy - panY) * ds / scale;
-        scale *= ds;
-        scale = Math.min(Math.max(scale, 0.3), 5);
-        applyTransform();
-    };
-    window.resetTimeline = function() { scale = 1; panX = 0; panY = 0; applyTransform(); };
-    function applyTransform() { canvas.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')'; }
-
-    window.focusSemester = function(sem, sx, sy) {
-        panX = container.clientWidth/2 - sx; panY = container.clientHeight/2 - sy;
-        scale = 1.5; applyTransform();
-    };
-
-    window.showEvents = function(label, titles) {
-        document.getElementById('tl-event-content').innerHTML = '<h3>' + label + '</h3>' + titles.map(function(t){return '<p>📅 '+t+'</p>';}).join('');
-        document.getElementById('tl-event-card').style.display = 'block';
-    };
-    window.openEvent = function(id, title, date, desc) {
-        document.getElementById('tl-event-content').innerHTML = '<h3>'+title+'</h3><p>📆 '+date+'</p><p>'+(desc||'')+'</p><a class="btn" href="/timeline/'+id+'/">查看详情</a>';
-        document.getElementById('tl-event-card').style.display = 'block';
-    };
-    window.closeEventCard = function() { document.getElementById('tl-event-card').style.display = 'none'; };
-})();
-</script>
 {% endblock %}

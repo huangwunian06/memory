@@ -452,7 +452,7 @@ def edit_profile(request):
     return render(request, 'memories/edit_profile.html', {'profile': profile})
 @login_required
 def timeline(request):
-    events = TimelineEvent.objects.all().order_by('-event_date')
+    events = TimelineEvent.objects.all().order_by('-event_date', '-created_at')
     import json as jmod
     events_json = jmod.dumps([{
         'id': e.id, 'title': e.title, 'description': e.description,
