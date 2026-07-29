@@ -28,6 +28,7 @@ urlpatterns = [
     path('space/<str:display_name>/photos-from-others/', views.photos_by_others, name='photos_by_others'),
     path('space/<str:display_name>/photos-from/<str:uploader_name>/', views.photos_by_uploader, name='photos_by_uploader'),
     path('photo/<int:photo_id>/delete/', views.photo_delete, name='photo_delete'),
+    path('comment/<int:comment_id>/delete/', views.comment_delete, name='comment_delete'),
     path('photo/<int:photo_id>/', views.photo_detail, name='photo_detail'),
     path('search/', views.search, name='search'),
     path('shared/', views.shared_albums, name='shared_albums'),

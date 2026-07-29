@@ -10,7 +10,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout as auth_logout
 from django.conf import settings
-from .models import InviteCode, PendingRegistration, Profile, ClassPhoto, FaceHotzone, Album, Photo, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification
+from .models import InviteCode, PendingRegistration, Profile, ClassPhoto, FaceHotzone, Album, Photo, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, Comment
 from .utils import get_face_client, log_activity
 
 
@@ -585,13 +585,33 @@ def photo_delete(request, photo_id):
     return redirect('space', display_name=request.user.profile.display_name)
 
 
-# ========== 照片详情（浏览计数） ==========
+# ========== 照片详情（浏览计数 + 评论） ==========
 @login_required
 def photo_detail(request, photo_id):
     photo = get_object_or_404(Photo, id=photo_id)
     photo.view_count += 1
     photo.save(update_fields=['view_count'])
-    return render(request, 'memories/photo_detail.html', {'photo': photo})
+    comments = photo.comments.all().select_related('author')
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        if content:
+            from .models import Comment
+            Comment.objects.create(photo=photo, author=request.user.profile, content=content)
+            messages.success(request, '评论已发表')
+        return redirect('photo_detail', photo_id=photo.id)
+    return render(request, 'memories/photo_detail.html', {'photo': photo, 'comments': comments})
+
+
+@login_required
+def comment_delete(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+    if comment.author != request.user.profile:
+        messages.error(request, '只能删除自己的评论')
+        return redirect('photo_detail', photo_id=comment.photo.id)
+    pid = comment.photo.id
+    comment.delete()
+    messages.success(request, '评论已删除')
+    return redirect('photo_detail', photo_id=pid)
 
 
 # ========== 搜索 ==========
@@ -743,7 +763,10 @@ def auto_upload(request, target_name=None):
                             p = Profile.objects.filter(user__username=u['user_id']).first()
                             if p and p not in targets: targets.append(p)
                 except: pass
-            if not targets: targets = [uploader]
+            if not targets:
+                # 未识别到人脸 → 不自动归入，标记为待手动处理
+                results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': None, 'pending': True})
+                continue
             for t in targets:
                 album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
                 album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.db.models.functions import Round
-from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog
+from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment
 
 
 # ========== 个人档案 ==========
@@ -8,15 +8,42 @@ from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHo
 class ProfileAdmin(admin.ModelAdmin):
     """
     个人档案管理 —— 每位注册同学的个人资料。
-    可查看/修改昵称、生日、简介、人脸标识、个人空间背景、全站背景。
+    ★ 训练基地：点击进入用户详情，可上传额外基准照充实人脸识别数据。
     """
-    list_display = ('display_name', 'user', 'birthday', 'created_at')
+    list_display = ('display_name', 'user', 'face_status', 'created_at')
     search_fields = ('display_name', 'user__username')
     fieldsets = (
         ('基本信息', {'fields': ('user', 'display_name', 'birthday', 'bio')}),
-        ('人脸识别', {'fields': ('face_token',), 'description': '用于百度人脸识别的 face_token，通常自动生成，无需手动修改'}),
-        ('背景图片', {'fields': ('bg_image', 'global_bg'), 'description': 'bg_image=个人空间背景；global_bg=全站所有页面的背景图'}),
+        ('人脸识别 · 训练基地', {
+            'fields': ('face_token', 'bg_image'),
+            'description': 'face_token=百度人脸标识。上传bg_image可作为补充训练照——每次保存时自动将该图注册到百度人脸库。'
+        }),
+        ('全站背景', {'fields': ('global_bg',)}),
     )
+    readonly_fields = ('face_token',)
+
+    @admin.display(description='人脸数据')
+    def face_status(self, obj):
+        if obj.face_token:
+            return '✅ 已注册'
+        return '⬜ 未注册'
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # 如果上传了bg_image且是人脸训练用途，注册到百度
+        if obj.bg_image and obj.user:
+            try:
+                from .utils import get_face_client
+                import base64
+                client = get_face_client()
+                with open(obj.bg_image.path, 'rb') as f:
+                    img_b64 = base64.b64encode(f.read()).decode()
+                result = client.addUser(img_b64, 'BASE64', 'class_group', obj.user.username)
+                if result['error_code'] == 0:
+                    obj.face_token = result['result'].get('face_token', obj.face_token or '')
+                    super().save_model(request, obj, form, change)
+            except Exception as e:
+                pass
 
 
 # ========== 邀请码 ==========
@@ -338,6 +365,16 @@ class NotificationAdmin(admin.ModelAdmin):
 
 
 # ========== 共同相册管理 ==========
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ('photo', 'author', 'content_preview', 'created_at')
+    search_fields = ('author__display_name', 'content')
+
+    @admin.display(description='内容')
+    def content_preview(self, obj):
+        return obj.content[:50]
+
+
 @admin.register(ActivityLog)
 class ActivityLogAdmin(admin.ModelAdmin):
     list_display = ('user', 'action', 'detail', 'created_at')

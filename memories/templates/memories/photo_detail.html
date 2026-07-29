@@ -16,5 +16,27 @@
         {% if photo.album %}<a class="btn" href="{% url 'album_detail' album_id=photo.album.id %}">📁 查看相册</a>{% endif %}
         {% if photo.uploaded_by == user.profile %}<a class="btn del-btn" href="{% url 'photo_delete' photo_id=photo.id %}" onclick="return confirm('确定删除？')">🗑️ 删除</a>{% endif %}
     </div>
+
+    <!-- 评论区 -->
+    <div class="card">
+        <h3>💬 评论 ({{ comments|length }})</h3>
+        {% for c in comments %}
+        <div style="padding:0.5rem 0;border-bottom:1px solid #eee;">
+            <strong>{{ c.author.display_name }}</strong>
+            <span style="color:#888;font-size:0.75rem;margin-left:0.5rem;">{{ c.created_at|date:"m-d H:i" }}</span>
+            {% if c.author == user.profile %}
+            <a href="{% url 'comment_delete' comment_id=c.id %}" style="color:#e74c3c;font-size:0.7rem;margin-left:0.5rem;" onclick="return confirm('确定删除？')">删除</a>
+            {% endif %}
+            <p style="margin:0.2rem 0;">{{ c.content }}</p>
+        </div>
+        {% empty %}
+        <p style="color:#888;">暂无评论</p>
+        {% endfor %}
+        <form method="post" style="margin-top:1rem;">
+            {% csrf_token %}
+            <textarea name="content" rows="2" style="width:100%;" placeholder="写下你的评论..." required></textarea>
+            <button class="btn" type="submit" style="margin-top:0.5rem;">发表评论</button>
+        </form>
+    </div>
 </div>
 {% endblock %}
