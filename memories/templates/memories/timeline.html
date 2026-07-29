@@ -1,57 +1,134 @@
 {% extends 'memories/base.html' %}
 {% block content %}
 <style>
-    #timeline-wrap {
-        background: rgba(255,255,255,0.85); border-radius: 16px; padding: 2rem; min-height: 80vh;
-        max-width: 700px; margin: 0 auto;
+    #tl-bg {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: radial-gradient(ellipse at 30% 50%, #1a1a3e 0%, #0a0a1a 100%);
+        z-index: -1;
     }
-    .tl-year { margin-bottom: 2.5rem; }
-    .tl-year-title {
-        font-size: 1.5rem; font-weight: bold; color: #667eea;
-        padding-bottom: 0.3rem; border-bottom: 2px solid #667eea; margin-bottom: 1rem;
+    .tl-star {
+        position: fixed; border-radius: 50%; background: white;
+        animation: twinkle var(--d) ease-in-out infinite;
+        animation-delay: var(--delay); z-index: -1;
+    }
+    @keyframes twinkle {
+        0%,100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.5); }
+    }
+    #tl-container { padding: 40px 20px 60px; max-width: 900px; margin: 0 auto; }
+
+    .tl-year-section { margin-bottom: 3rem; position: relative; }
+    .tl-year-node {
+        display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .tl-year-dot {
+        width: 48px; height: 48px; border-radius: 50%;
+        background: radial-gradient(circle, #ffdd57, #e6a800);
+        box-shadow: 0 0 30px rgba(255,221,87,0.5), 0 0 60px rgba(255,221,87,0.2);
+        flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        font-weight: bold; color: #333; font-size: 0.85rem;
+    }
+    .tl-year-line {
+        flex: 1; height: 2px;
+        background: linear-gradient(90deg, rgba(255,221,87,0.6), rgba(255,221,87,0.05));
+    }
+    .tl-year-label {
+        color: #ffdd57; font-size: 1.4rem; font-weight: bold; flex-shrink: 0;
+    }
+
+    .tl-month-row {
+        margin-left: 64px; position: relative; padding-left: 24px;
+        border-left: 1px solid rgba(255,255,255,0.1); margin-bottom: 0.8rem;
+    }
+    .tl-month-tag {
+        color: rgba(255,255,255,0.6); font-size: 0.8rem; margin-bottom: 0.5rem;
+        padding-left: 8px;
     }
     .tl-event {
-        position: relative; padding: 0.8rem 1rem 0.8rem 2rem; margin-bottom: 0.5rem;
-        border-left: 2px solid #e0e0e0; transition: all 0.3s;
-        cursor: pointer; border-radius: 0 8px 8px 0;
+        display: flex; align-items: baseline; gap: 0.6rem; padding: 0.5rem 1rem;
+        margin-bottom: 0.3rem; border-radius: 8px; cursor: pointer;
+        transition: all 0.3s; position: relative;
     }
-    .tl-event:hover { border-left-color: #667eea; background: rgba(102,126,234,0.05); }
     .tl-event::before {
-        content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%);
-        width: 10px; height: 10px; border-radius: 50%; background: #667eea;
+        content: ''; position: absolute; left: -28px; top: 50%; transform: translateY(-50%);
+        width: 8px; height: 8px; border-radius: 50%; background: rgba(102,126,234,0.5);
     }
-    .tl-event-title { font-weight: bold; color: var(--text); }
-    .tl-event-date { font-size: 0.8rem; color: #888; }
-    .tl-event-desc { font-size: 0.85rem; color: #666; margin-top: 0.2rem; }
-    .tl-empty { text-align: center; color: #888; padding: 3rem; }
-    a.tl-add-btn {
-        display: inline-block; background: #667eea; color: white; padding: 0.6rem 1.5rem;
-        border-radius: 25px; text-decoration: none; font-weight: 500; margin-bottom: 1.5rem;
+    .tl-event:hover {
+        background: rgba(102,126,234,0.15);
+    }
+    .tl-event:hover::before {
+        background: #667eea; box-shadow: 0 0 10px rgba(102,126,234,0.6);
+    }
+    .tl-event-date {
+        color: rgba(255,255,255,0.4); font-size: 0.75rem; white-space: nowrap;
+    }
+    .tl-event-title {
+        color: rgba(255,255,255,0.9); font-weight: 500; font-size: 0.95rem;
+    }
+    .tl-event-creator {
+        color: rgba(255,255,255,0.3); font-size: 0.7rem; margin-left: auto; white-space: nowrap;
+    }
+    .tl-empty { text-align: center; color: rgba(255,255,255,0.3); padding: 4rem 0; font-size: 1.2rem; }
+    .tl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .tl-header h2 { color: #ffdd57; }
+    .tl-add-btn { background: rgba(102,126,234,0.8); color: white; padding: 0.5rem 1.5rem; border-radius: 25px; text-decoration: none; font-size: 0.9rem; transition: background 0.3s; }
+    .tl-add-btn:hover { background: rgba(102,126,234,1); }
+
+    @media (max-width: 600px) {
+        .tl-year-label { font-size: 1.1rem; }
+        .tl-month-row { margin-left: 20px; padding-left: 16px; }
+        .tl-event-title { font-size: 0.85rem; }
+        .tl-event-creator { display: none; }
     }
 </style>
 
-<div id="timeline-wrap">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-        <h2>📅 班级时间线</h2>
-        <a class="tl-add-btn" href="{% url 'create_event' %}">✨ 创建事件</a>
+<div id="tl-bg"></div>
+
+<script>
+// 生成星空背景
+(function() {
+    var bg = document.getElementById('tl-bg');
+    for (var i = 0; i < 150; i++) {
+        var star = document.createElement('div');
+        star.className = 'tl-star';
+        star.style.cssText = 'left:' + Math.random()*100 + '%;top:' + Math.random()*100 + '%;width:' + (1+Math.random()*2) + 'px;height:' + (1+Math.random()*2) + 'px;--d:' + (2+Math.random()*3) + 's;--delay:' + Math.random()*5 + 's;';
+        bg.appendChild(star);
+    }
+})();
+</script>
+
+<div id="tl-container">
+    <div class="tl-header">
+        <h2>✨ 班级时间线</h2>
+        <a class="tl-add-btn" href="{% url 'create_event' %}">＋ 创建事件</a>
     </div>
 
     {% if events %}
     {% regroup events by event_date.year as year_groups %}
     {% for year in year_groups %}
-    <div class="tl-year">
-        <div class="tl-year-title">{{ year.grouper }} 年</div>
-        {% for event in year.list %}
-        <div class="tl-event" onclick="location.href='{% url 'event_detail' event.id %}'">
-            <div class="tl-event-title">{{ event.title }}</div>
-            <div class="tl-event-date">{{ event.event_date|date:"m-d" }} · {{ event.created_by.display_name }} 创建</div>
-            {% if event.description %}<div class="tl-event-desc">{{ event.description|truncatechars:60 }}</div>{% endif %}
+    <div class="tl-year-section">
+        <div class="tl-year-node">
+            <div class="tl-year-dot">{{ year.grouper }}</div>
+            <div class="tl-year-line"></div>
+            <div class="tl-year-label">{{ year.grouper }}</div>
+        </div>
+        {% regroup year.list by event_date.month as month_groups %}
+        {% for month in month_groups %}
+        <div class="tl-month-row">
+            <div class="tl-month-tag">{{ month.grouper }}月</div>
+            {% for event in month.list %}
+            <div class="tl-event" onclick="location.href='{% url 'event_detail' event.id %}'">
+                <span class="tl-event-date">{{ event.event_date|date:"d" }}</span>
+                <span class="tl-event-title">{{ event.title }}</span>
+                <span class="tl-event-creator">{{ event.created_by.display_name }}</span>
+            </div>
+            {% endfor %}
         </div>
         {% endfor %}
     </div>
     {% endfor %}
     {% else %}
-    <div class="tl-empty">时间线上还没有事件，点击上方按钮创建第一个吧！</div>
+    <div class="tl-empty">🌌 时间线上还没有事件<br>点击右上角创建第一个回忆吧</div>
     {% endif %}
 </div>
 {% endblock %}
