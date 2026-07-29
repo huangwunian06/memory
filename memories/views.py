@@ -775,61 +775,63 @@ def auto_upload(request, target_name=None):
         from PIL import Image as PILImage
         results = []
         for f in files:
-            ext = os.path.splitext(f.name)[1].lower()
-            if ext in ['.jpg', '.jpeg', '.png', '.webp']:
-                try:
-                    img = PILImage.open(f); img.thumbnail((1920, 1920), PILImage.LANCZOS)
-                    out = io.BytesIO(); img.save(out, format='JPEG', quality=85)
-                    out.seek(0); f.file = out; f.size = out.tell()
-                except: pass
-            is_video = ext in {'.mp4', '.mov', '.avi', '.webm', '.mkv'}
-            targets = [target] if target else []
-            search_log = ''
-            if not targets and not is_video:
-                try:
-                    f.file.seek(0)
-                    client = get_face_client()
-                    img_b64 = base64.b64encode(f.file.read()).decode(); f.file.seek(0)
-                    sr = client.search(img_b64, 'BASE64', 'class_group', options={'max_user_num': 3})
-                    if sr['error_code'] == 0:
-                        for u in sr['result'].get('user_list', []):
-                            uid_num = u['user_id'].replace('user', '')
-                            p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
-                            if p and p not in targets: targets.append(p)
-                        if not targets:
-                            search_log = '百度搜索成功但无匹配'
-                    else:
-                        ec = sr.get('error_code', '')
-                        em = sr.get('error_msg', '')
-                        search_log = f'百度搜索失败: 错误码{ec} {em}'
-                except Exception as e:
-                    search_log = f'搜索异常: {str(e)}'
-                finally:
-                    f.file.seek(0)  # 回位指针，确保后面保存照片时能读到数据
+            try:
+                ext = os.path.splitext(f.name)[1].lower()
+                if ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                    try:
+                        img = PILImage.open(f); img.thumbnail((1920, 1920), PILImage.LANCZOS)
+                        out = io.BytesIO(); img.save(out, format='JPEG', quality=85)
+                        out.seek(0); f.file = out; f.size = out.tell()
+                    except: pass
+                is_video = ext in {'.mp4', '.mov', '.avi', '.webm', '.mkv'}
+                targets = [target] if target else []
+                search_log = ''
+                if not targets and not is_video:
+                    try:
+                        f.file.seek(0)
+                        client = get_face_client()
+                        img_b64 = base64.b64encode(f.file.read()).decode(); f.file.seek(0)
+                        sr = client.search(img_b64, 'BASE64', 'class_group', options={'max_user_num': 3})
+                        if sr['error_code'] == 0:
+                            for u in sr['result'].get('user_list', []):
+                                uid_num = u['user_id'].replace('user', '')
+                                p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
+                                if p and p not in targets: targets.append(p)
+                            if not targets:
+                                search_log = '百度搜索成功但无匹配'
+                        else:
+                            search_log = '搜索失败:' + str(sr.get('error_code', ''))
+                    except Exception as e:
+                        search_log = f'搜索异常:{str(e)[:100]}'
+                    finally:
+                        try: f.file.seek(0)
+                        except: pass
 
-            if targets:
-                for t in targets:
-                    f.file.seek(0)  # 每个目标都从文件头读取
-                    album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
-                    album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
-                    photo = Photo.objects.create(album=album, uploaded_by=uploader,
+                if targets:
+                    for t in targets:
+                        f.file.seek(0)
+                        album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
+                        album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
+                        photo = Photo.objects.create(album=album, uploaded_by=uploader,
+                            image=f if not is_video else None, video=f if is_video else None,
+                            caption=caption, message=message)
+                        if t.user and t != uploader:
+                            from .utils import create_notification
+                            create_notification(recipient_user=t.user, sender_profile=uploader,
+                                title='有人为你自动上传了照片', message=f'{uploader.display_name} 为你上传了照片到「{album_name}」',
+                                related_url=f'/album/{album.id}/', notification_type='public_photo')
+                    log_activity(uploader, '自动上传匹配', f'{f.name}/{",".join([t.display_name for t in targets])}')
+                    results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id, 'pending': False})
+                else:
+                    photo = Photo.objects.create(album=None, uploaded_by=uploader,
                         image=f if not is_video else None, video=f if is_video else None,
                         caption=caption, message=message)
-                    if t.user and t != uploader:
-                        from .utils import create_notification
-                        create_notification(recipient_user=t.user, sender_profile=uploader,
-                            title='有人为你自动上传了照片', message=f'{uploader.display_name} 为你上传了照片到「{album_name}」',
-                            related_url=f'/album/{album.id}/', notification_type='public_photo')
-                log_activity(uploader, '自动上传匹配', f'{f.name} → {",".join([t.display_name for t in targets])}')
-                results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id, 'pending': False})
-            else:
-                # 保存为待处理（不归入任何相册）
-                photo = Photo.objects.create(album=None, uploaded_by=uploader,
-                    image=f if not is_video else None, video=f if is_video else None,
-                    caption=caption, message=message)
-                detail = f'{f.name}: {search_log}' if search_log else f'{f.name}: 未检测到人脸'
-                log_activity(uploader, '自动上传未匹配', detail)
-                results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': photo.id, 'pending': True})
+                    detail = f'{f.name}:{search_log}' if search_log else f'{f.name}:未检测到人脸'
+                    log_activity(uploader, '自动上传未匹配', detail)
+                    results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': photo.id, 'pending': True})
+            except Exception as e:
+                log_activity(uploader, '自动上传异常', f'{f.name}:{str(e)[:200]}')
+                results.append({'file': f.name, 'targets': [], 'is_video': False, 'photo_id': None, 'pending': True})
 
         from memories.models import PendingRegistration
         all_names = list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True))
