@@ -24,7 +24,7 @@
                 {% endif %}
             </div>
             {% if photo.uploaded_by == user.profile %}
-            <a href="{% url 'photo_delete' photo_id=photo.id %}" style="position:absolute;top:2px;right:2px;background:rgba(231,76,60,0.8);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:0.65rem;z-index:5;" onclick="return confirm('确定删除？')" title="删除">✕</a>
+            <a href="{% url 'photo_delete' photo_id=photo.id %}" style="position:absolute;top:2px;right:2px;background:rgba(231,76,60,0.8);color:white;border-radius:50%;width:28px;height:28px;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:0.65rem;z-index:5;" onclick="return confirm('确定删除？')" title="删除">✕</a>
             {% endif %}
         </div>
         {% endfor %}
