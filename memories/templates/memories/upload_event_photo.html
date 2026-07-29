@@ -9,7 +9,7 @@
       <label>选择文件（图片/视频可同时选）：</label>
       <input type="file" name="images" multiple accept="image/*,video/*"><br><br>
       <label>说明：</label><input type="text" name="caption"><br><br>
-      <button class="btn" type="submit" style="width:100%;">上传</button>
+      <button class="btn" type="submit" style="width:100%;" onclick="this.textContent='上传中...';this.disabled=true;this.form.submit()">上传</button>
     </form>
   </div>
 </div>
