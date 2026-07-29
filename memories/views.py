@@ -282,8 +282,9 @@ def upload_photo(request):
         album = None
         if album_id:
             album = get_object_or_404(Album, id=album_id)
-            if album.owner != request.user.profile and not album.is_public:
-                messages.error(request, '你没有权限上传到此相册')
+            # 个人相册仅创建者可上传；共同相册任何人可上传
+            if album.album_type == 'personal' and album.owner != request.user.profile:
+                messages.error(request, '个人相册仅创建者可上传')
                 return redirect('upload_photo')
         elif target_name and target_name != request.user.profile.display_name:
             album_name = f'{request.user.profile.display_name}为{target_name}上传的相册'

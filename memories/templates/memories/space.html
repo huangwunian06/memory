@@ -20,31 +20,25 @@
     {% endif %}
     {% if is_owner %}
     <a class="btn" href="{% url 'edit_profile' %}">编辑资料</a>
-    {% endif %}
-    {% if is_registered and profile.bio %}<p>{{ profile.bio }}</p>{% endif %}
-    {% if is_registered %}<p>生日：{{ profile.birthday|default:"未设置" }}</p>{% endif %}
-    {% if is_owner %}
     <a class="btn" href="{% url 'create_album' %}">创建相册</a>
     <a class="btn" href="{% url 'upload_photo' %}">上传照片</a>
     <a class="btn" href="{% url 'edit_bg' %}">更换背景</a>
-    {% elif is_registered %}
-    <a class="btn" href="{% url 'auto_upload_target' target_name=profile.display_name %}">📤 为TA自动上传</a>
-    <a class="btn" href="{% url 'upload_photo' %}?target={{ profile.display_name }}">📸 为TA上传照片</a>
-    {% else %}
-    <a class="btn" href="{% url 'auto_upload_target' target_name=profile.name %}">📤 为TA自动上传</a>
-    <a class="btn" href="{% url 'upload_photo' %}?target={{ profile.name }}">📸 为TA上传照片</a>
     {% endif %}
+    {% if is_registered and profile.bio %}<p>{{ profile.bio }}</p>{% endif %}
+    {% if is_registered %}<p>生日：{{ profile.birthday|default:"未设置" }}</p>{% endif %}
 </div>
 
-<h3>📁 相册</h3>
+<h3>📁 我创建的相册</h3>
 <div class="grid">
     {% for album in albums %}
+    {% if album.album_type == 'personal' and album.owner == profile %}
     <div class="card album-card">
         <a href="{% url 'album_detail' album.id %}">
-            <img src="{% if album.photos.first %}{{ album.photos.first.image.url }}{% else %}{% endif %}" alt="">
+            <img src="{% if album.photos.first %}{{ album.photos.first.image.url }}{% endif %}" alt="">
             <h4>{{ album.name }}</h4>
         </a>
     </div>
+    {% endif %}
     {% empty %}<p>还没有相册</p>{% endfor %}
 </div>
 

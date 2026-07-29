@@ -476,7 +476,6 @@ function renderProfileCard(data, content, card) {
 
     html += `<div class="actions" style="margin-top:0.8rem;">
         <a href="${data.profileUrl}" class="btn-primary">🏠 个人空间</a>
-        <a href="/auto-upload/${encodeURIComponent(data.profileName)}/" class="btn-secondary">🤖 自动上传</a>
         <a href="/photo/upload/?target=${encodeURIComponent(data.profileName)}" class="btn-secondary">📤 为TA上传</a>
     </div>`;
     html += `<p style="color:#888;font-size:0.7rem;margin-top:0.5rem;">点击照片空白处取消聚焦</p>`;

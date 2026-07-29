@@ -6,10 +6,8 @@
     <p style="text-align:center;">事件：{{ event.title }}</p>
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
-      <label>选择图片（可多选）：</label>
-      <input type="file" name="images" multiple accept="image/*"><br><br>
-      <label>选择视频（可多选）：</label>
-      <input type="file" name="videos" multiple accept="video/*"><br><br>
+      <label>选择文件（图片/视频可同时选）：</label>
+      <input type="file" name="images" multiple accept="image/*,video/*"><br><br>
       <label>说明：</label><input type="text" name="caption"><br><br>
       <button class="btn" type="submit" style="width:100%;">上传</button>
     </form>
