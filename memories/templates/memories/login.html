@@ -5,11 +5,12 @@
     <h2 style="text-align:center; color:#667eea;">🔐 同学登录</h2>
     <form method="post">
       {% csrf_token %}
-      <label>用户名：</label><input type="text" name="username" required><br><br>
-      <label>密码：</label><input type="password" name="password" required><br><br>
+      <label for="login-username">用户名：</label><input id="login-username" type="text" name="username" required autocomplete="username"><br><br>
+      <label for="login-password">密码：</label><input id="login-password" type="password" name="password" required autocomplete="current-password"><br><br>
       <button class="btn" type="submit" style="width:100%;">登录</button>
     </form>
     <p style="text-align:center;">还没有账号？<a href="{% url 'register' %}">去注册</a></p>
+    <p style="text-align:center;font-size:0.85rem;"><a href="{% url 'password_reset' %}" style="color:#999;">忘记密码？</a></p>
   </div>
 </div>
 {% endblock %}

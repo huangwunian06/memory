@@ -93,6 +93,29 @@ def register(request):
     return render(request, 'memories/register.html', {'step': 'info', 'available_names': available_names})
 
 
+# ========== 忘记密码 ==========
+def password_reset(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        display_name = request.POST.get('display_name')
+        new_password = request.POST.get('new_password')
+        try:
+            user = User.objects.get(username=username)
+            profile = Profile.objects.get(user=user)
+            if profile.display_name != display_name:
+                messages.error(request, '姓名不匹配，无法验证身份')
+                return redirect('password_reset')
+            user.set_password(new_password)
+            user.save()
+            messages.success(request, '密码已重置，请登录')
+            return redirect('login')
+        except User.DoesNotExist:
+            messages.error(request, '用户名不存在')
+        except Profile.DoesNotExist:
+            messages.error(request, '账号异常，请联系管理员')
+    return render(request, 'memories/reset_password.html')
+
+
 # ========== 登录 / 退出 ==========
 def user_login(request):
     if request.method == 'POST':
