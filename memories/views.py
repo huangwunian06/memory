@@ -73,7 +73,8 @@ def register(request):
         if face_photo:
             try:
                 from .models import FaceTrainingPhoto
-                tp = FaceTrainingPhoto.objects.create(profile=profile, image=face_photo)
+                roster = PendingRegistration.objects.filter(name=display_name).first()
+                tp = FaceTrainingPhoto.objects.create(roster=roster or PendingRegistration.objects.get_or_create(name=display_name)[0], image=face_photo)
                 client = get_face_client()
                 face_photo.seek(0)
                 img_b64 = base64.b64encode(face_photo.read()).decode()
@@ -798,8 +799,15 @@ def auto_upload(request, target_name=None):
                                 score = u.get('score', 0)
                                 if score < 80:  # 置信度低于80分的不认
                                     continue
-                                uid_num = u['user_id'].replace('user', '')
-                                p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
+                                uid = u['user_id']
+                                p = None
+                                if uid.startswith('user'):
+                                    p = Profile.objects.filter(user__id=uid[4:]).first() if uid[4:].isdigit() else None
+                                elif uid.startswith('roster'):
+                                    # 未注册用户：通过花名册名查找
+                                    roster = PendingRegistration.objects.filter(id=uid[6:]).first() if uid[6:].isdigit() else None
+                                    if roster:
+                                        p = Profile.objects.filter(display_name=roster.name).first()
                                 if p and p not in targets: targets.append(p)
                             if not targets:
                                 search_log = '百度搜索成功但无匹配'

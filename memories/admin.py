@@ -388,12 +388,12 @@ class ActivityLogAdmin(admin.ModelAdmin):
 @admin.register(FaceTrainingPhoto)
 class FaceTrainingPhotoAdmin(admin.ModelAdmin):
     """
-    人脸训练库 —— 管理每位同学的人脸识别训练数据。
-    上传照片后自动注册到百度人脸库 class_group。
+    人脸训练库 —— 为全班同学（无论是否注册）添加人脸训练照。
+    上传后自动注册到百度人脸库 class_group。
     """
-    list_display = ('profile', 'image_preview', 'is_registered', 'uploaded_at')
-    list_filter = ('is_registered', 'profile')
-    search_fields = ('profile__display_name',)
+    list_display = ('roster', 'image_preview', 'is_registered', 'uploaded_at')
+    list_filter = ('is_registered',)
+    search_fields = ('roster__name',)
 
     @admin.display(description='预览')
     def image_preview(self, obj):
@@ -402,26 +402,33 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        if obj.image and obj.profile.user:
-            from .utils import get_face_client, log_activity
-            import base64
-            try:
-                client = get_face_client()
-                with open(obj.image.path, 'rb') as f:
-                    img_b64 = base64.b64encode(f.read()).decode()
-                result = client.addUser(img_b64, 'BASE64', 'class_group', f'user{obj.profile.user.id}')
-                err_code = result.get('error_code', -1)
-                err_msg = result.get('error_msg', '未知')
-                if err_code == 0:
-                    obj.is_registered = True
-                    obj.profile.face_token = result['result'].get('face_token', obj.profile.face_token or '')
-                    obj.profile.save()
-                    obj.save()
-                    self.message_user(request, f'✅ {obj.profile.display_name} 人脸注册成功！', level='success')
-                    log_activity(obj.profile, '人脸注册', f'训练照注册成功')
-                else:
-                    self.message_user(request, f'❌ 人脸注册失败: [{err_code}] {err_msg}', level='error')
-                    log_activity(obj.profile, '人脸注册失败', f'错误码{err_code}: {err_msg}')
-            except Exception as e:
-                self.message_user(request, f'❌ 异常: {str(e)}', level='error')
-                log_activity(obj.profile, '人脸注册异常', str(e))
+        if not obj.image:
+            return
+        from .utils import get_face_client, log_activity
+        import base64
+
+        # 查找是否已注册
+        profile = Profile.objects.filter(display_name=obj.roster.name).first()
+        user_id = f'roster{obj.roster.id}'
+        if profile and profile.user:
+            user_id = f'user{profile.user.id}'
+
+        try:
+            client = get_face_client()
+            with open(obj.image.path, 'rb') as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            result = client.addUser(img_b64, 'BASE64', 'class_group', user_id)
+            err_code = result.get('error_code', -1)
+            err_msg = result.get('error_msg', '未知')
+            if err_code == 0:
+                obj.is_registered = True
+                obj.save()
+                if profile:
+                    profile.face_token = result['result'].get('face_token', profile.face_token or '')
+                    profile.save()
+                self.message_user(request, f'✅ {obj.roster.name} 人脸注册成功！')
+                log_activity(profile or obj.roster, '人脸注册', f'{obj.roster.name}训练照注册成功')
+            else:
+                self.message_user(request, f'❌ 人脸注册失败: [{err_code}] {err_msg}', level='error')
+        except Exception as e:
+            self.message_user(request, f'❌ 异常: {str(e)}', level='error')
