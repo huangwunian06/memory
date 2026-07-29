@@ -804,6 +804,8 @@ def auto_upload(request, target_name=None):
                         search_log = f'百度搜索失败: 错误码{ec} {em}'
                 except Exception as e:
                     search_log = f'搜索异常: {str(e)}'
+                finally:
+                    f.file.seek(0)  # 回位指针，确保后面保存照片时能读到数据
 
             if targets:
                 for t in targets:
