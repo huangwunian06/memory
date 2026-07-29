@@ -809,6 +809,7 @@ def auto_upload(request, target_name=None):
 
             if targets:
                 for t in targets:
+                    f.file.seek(0)  # 每个目标都从文件头读取
                     album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
                     album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
                     photo = Photo.objects.create(album=album, uploaded_by=uploader,
