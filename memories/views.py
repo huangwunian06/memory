@@ -775,6 +775,8 @@ def auto_upload(request, target_name=None):
                             uid_num = u['user_id'].replace('user', '')
                             p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
                             if p and p not in targets: targets.append(p)
+                    if not targets and sr['error_code'] == 0:
+                        log_activity(uploader, '人脸搜索无匹配', f'百度未在class_group中找到匹配人脸')
                 except Exception as e:
                     log_activity(uploader, '人脸搜索异常', str(e))
             if not targets:
