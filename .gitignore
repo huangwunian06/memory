@@ -7,4 +7,6 @@ __pycache__/
 *.exe
 cloudflared*
 .vscode/
+db.sqlite3
+/media_backup.tar.gz
 node_modules/
