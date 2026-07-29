@@ -72,7 +72,11 @@ def register(request):
         face_photo = request.FILES.get('face_photo')
         if face_photo:
             try:
+                # 保存到训练库
+                from .models import FaceTrainingPhoto
+                FaceTrainingPhoto.objects.create(profile=profile, image=face_photo, is_registered=True)
                 client = get_face_client()
+                face_photo.seek(0)
                 img_b64 = base64.b64encode(face_photo.read()).decode()
                 result = client.addUser(img_b64, 'BASE64', 'class_group', username)
                 if result['error_code'] == 0:
