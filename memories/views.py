@@ -795,6 +795,9 @@ def auto_upload(request, target_name=None):
                         sr = client.search(img_b64, 'BASE64', 'class_group', options={'max_user_num': 3})
                         if sr['error_code'] == 0:
                             for u in sr['result'].get('user_list', []):
+                                score = u.get('score', 0)
+                                if score < 80:  # 置信度低于80分的不认
+                                    continue
                                 uid_num = u['user_id'].replace('user', '')
                                 p = Profile.objects.filter(user__id=uid_num).first() if uid_num.isdigit() else None
                                 if p and p not in targets: targets.append(p)
