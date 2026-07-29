@@ -167,12 +167,22 @@
     /* === 响应式 === */
     @media (max-width: 768px) {
         .photo-item { width: 95% !important; }
-        /* 首页浮动按钮在手机上缩小并靠边 */
         a[href*="auto_upload"], a[href*="shared_albums"] {
             right: 8px !important; padding: 0.5rem 0.8rem !important; font-size: 0.8rem !important;
         }
         a[href*="auto_upload"] { top: 35% !important; }
         a[href*="shared_albums"] { top: 48% !important; }
+        /* 移动端热区缩小、减淡 */
+        .lb-hotzone { border-width: 1px !important; }
+        .lb-hotzone.has-profile:hover, .lb-hotzone.has-profile.active {
+            background: rgba(78,203,113,0.15) !important; border-color: rgba(78,203,113,0.5) !important;
+        }
+        .lb-hotzone:hover, .lb-hotzone.active {
+            background: rgba(255,80,80,0.12) !important; border-color: rgba(255,80,80,0.5) !important;
+            box-shadow: 0 0 8px rgba(255,0,0,0.3) !important;
+        }
+        #profile-card { max-width: 100% !important; margin: 0.5rem 0 0 !important; }
+        #lightbox-body { padding: 50px 8px 16px !important; }
         #lightbox-body { flex-direction: column; padding: 60px 10px 20px; }
         #lightbox-photo-area { width: 100%; flex: none; height: 55vh; }
         #profile-card { width: 100%; max-width: 100%; margin: 1rem 0 0; }
