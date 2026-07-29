@@ -81,10 +81,6 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# 文件上传限制
-FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 55 * 1024 * 1024
-
 BAIDU_APP_ID = os.getenv('BAIDU_APP_ID', '')
 BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', '')
 BAIDU_SECRET_KEY = os.getenv('BAIDU_SECRET_KEY', '')

@@ -1,6 +1,30 @@
 from django.contrib import admin
 from django.db.models.functions import Round
+from django.template.response import TemplateResponse
 from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment
+
+# 重写 admin 首页加磁盘用量
+_original_index = admin.site.index
+def index_with_storage(request, extra_context=None):
+    if extra_context is None:
+        extra_context = {}
+    try:
+        import os, shutil
+        from django.conf import settings
+        media_path = settings.MEDIA_ROOT if settings.MEDIA_ROOT else os.path.join(settings.BASE_DIR, 'media')
+        if os.path.exists(media_path):
+            usage = shutil.disk_usage(media_path)
+            total = usage.total
+            used = usage.used
+            extra_context['storage_pct'] = used / total * 100
+            extra_context['storage_mb'] = used / (1024**2)
+        extra_context['photo_count'] = Photo.objects.count()
+    except:
+        extra_context['storage_pct'] = 0
+        extra_context['storage_mb'] = 0
+        extra_context['photo_count'] = 0
+    return _original_index(request, extra_context=extra_context)
+admin.site.index = index_with_storage
 
 
 # ========== 个人档案 ==========

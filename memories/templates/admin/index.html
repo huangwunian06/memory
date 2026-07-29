@@ -1,0 +1,14 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:16px;margin-bottom:20px;">
+    <h3 style="margin-top:0;">📊 存储用量</h3>
+    {% if storage_pct > 80 %}
+        <p style="color:#e74c3c;font-weight:bold;">⚠️ 磁盘即将耗尽！当前用量 {{ storage_pct|floatformat:0 }}%（{{ storage_mb|floatformat:0 }}MB）</p>
+        <p>请尽快迁移至 Cloudflare R2 对象存储（10GB 免费）。<a href="https://dash.cloudflare.com/sign-up" target="_blank">注册 Cloudflare →</a></p>
+    {% else %}
+        <p style="color:#27ae60;">当前用量 {{ storage_pct|floatformat:0 }}%（{{ storage_mb|floatformat:0 }}MB）</p>
+    {% endif %}
+    <p style="font-size:0.85rem;color:#888;">照片：{{ photo_count }} 张 | 建议每周备份：Bash 中运行 <code>tar -czf backup.tar.gz db.sqlite3 media/</code></p>
+</div>
+{{ block.super }}
+{% endblock %}
