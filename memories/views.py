@@ -331,7 +331,8 @@ def upload_photo(request):
                 try:
                     im = PILImage.open(f); im.thumbnail((1920, 1920), PILImage.LANCZOS)
                     out = io.BytesIO(); im.save(out, format='JPEG', quality=85)
-                    f.file = out; f.size = out.tell()
+                    from django.core.files.base import ContentFile
+                    f = ContentFile(out.getvalue(), name=f.name)
                 except: pass
             if ext in VIDEO_EXTS:
                 Photo.objects.create(
@@ -748,7 +749,8 @@ def shared_album_upload(request, album_id):
                 try:
                     im = PILImage.open(f); im.thumbnail((1920, 1920), PILImage.LANCZOS)
                     out = io.BytesIO(); im.save(out, format='JPEG', quality=85)
-                    f.file = out; f.size = out.tell()
+                    from django.core.files.base import ContentFile
+                    f = ContentFile(out.getvalue(), name=f.name)
                 except: pass
             Photo.objects.create(album=album, uploaded_by=request.user.profile,
                 image=f if ext not in VIDEO_EXTS else None,
