@@ -102,9 +102,10 @@ class FaceHotzone(models.Model):
 def auto_create_hotzones(sender, instance, created, **kwargs):
     if not instance.image:
         return
-    if not created and instance.hotzones.exists():
+    # 如果已有手动分配的热区（profile不为空），跳过自动生成，保护手动编辑
+    if not created and instance.hotzones.exclude(profile__isnull=True).exists():
         return
-    # 压缩大图
+    # 清除旧热区（仅当全部为自动生成的未分配热区时才重生成）
     from PIL import Image as PILImage
     import io as sio
     try:
