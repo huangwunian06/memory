@@ -19,6 +19,11 @@ class Profile(models.Model):
         verbose_name = '个人档案'
         verbose_name_plural = '个人档案'
 
+    @property
+    def name(self):
+        """别名，与 PendingRegistration.name 统一"""
+        return self.display_name
+
     def __str__(self):
         return self.display_name
 
