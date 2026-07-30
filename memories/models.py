@@ -131,6 +131,7 @@ class Album(models.Model):
     description = models.TextField(blank=True, verbose_name='描述')
     is_public = models.BooleanField(default=False, verbose_name='是否公开到公共板块')
     album_type = models.CharField(max_length=10, choices=ALBUM_TYPES, default='personal', verbose_name='相册类型')
+    is_deleted = models.BooleanField(default=False, verbose_name='已删除（软删除）')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 
     class Meta:

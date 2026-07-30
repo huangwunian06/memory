@@ -217,9 +217,9 @@ def space(request, display_name):
 
     if is_registered:
         if is_owner:
-            albums = profile.albums.filter(album_type='personal')
+            albums = profile.albums.filter(album_type='personal', is_deleted=False)
         else:
-            albums = profile.albums.filter(is_public=True, album_type='personal')
+            albums = profile.albums.filter(is_public=True, album_type='personal', is_deleted=False)
         public_photos = Photo.objects.filter(
             album__owner=profile, album__is_public=True
         ).exclude(uploaded_by=profile).select_related('uploaded_by').order_by('-uploaded_at')
@@ -245,15 +245,27 @@ def space(request, display_name):
 # ========== 相册删除 ==========
 @login_required
 def album_delete(request, album_id):
-    album = get_object_or_404(Album, id=album_id)
+    album = get_object_or_404(Album, id=album_id, is_deleted=False)
     if album.owner != request.user.profile:
         messages.error(request, '仅相册创建者可删除')
         return redirect('space', display_name=request.user.profile.display_name)
-    album_name = album.name
-    album.delete()
-    log_activity(request.user.profile, '删除相册', f'删除了相册「{album_name}」')
-    messages.success(request, f'相册「{album_name}」已删除')
+    album.is_deleted = True
+    album.save()
+    log_activity(request.user.profile, '删除相册', f'删除了相册「{album.name}」（可恢复）')
+    messages.success(request, f'相册「{album.name}」已删除')
     return redirect('space', display_name=request.user.profile.display_name)
+
+
+@login_required
+def album_restore(request, album_id):
+    if not request.user.is_staff:
+        messages.error(request, '仅管理员可恢复')
+        return redirect('home')
+    album = get_object_or_404(Album, id=album_id)
+    album.is_deleted = False
+    album.save()
+    messages.success(request, f'相册「{album.name}」已恢复')
+    return redirect('admin:index')
 
 
 # ========== 相册管理 ==========
@@ -701,7 +713,7 @@ def search(request):
 # ========== 共同相册 ==========
 @login_required
 def shared_albums(request):
-    albums = Album.objects.filter(album_type='shared').order_by('-created_at')
+    albums = Album.objects.filter(album_type='shared', is_deleted=False).order_by('-created_at')
     return render(request, 'memories/shared_albums.html', {'albums': albums})
 
 @login_required

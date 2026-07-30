@@ -189,9 +189,16 @@ class FaceHotzoneAdmin(admin.ModelAdmin):
 class AlbumAdmin(admin.ModelAdmin):
     """
     相册管理 —— 用户创建的个人相册或共同相册。
+    ★ 被删除的相册可在此恢复。
     """
-    list_display = ('name', 'owner', 'album_type', 'is_public', 'photo_count', 'created_at')
-    list_filter = ('album_type', 'is_public')
+    list_display = ('name', 'owner', 'album_type', 'is_public', 'is_deleted', 'photo_count', 'created_at')
+    list_filter = ('album_type', 'is_public', 'is_deleted')
+    actions = ['restore_albums']
+
+    @admin.action(description='🔄 恢复选中的相册')
+    def restore_albums(self, request, queryset):
+        queryset.update(is_deleted=False)
+        self.message_user(request, f'已恢复 {queryset.count()} 个相册')
     search_fields = ('name', 'owner__display_name')
     fieldsets = (
         ('相册信息', {
