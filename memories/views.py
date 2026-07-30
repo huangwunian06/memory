@@ -304,6 +304,8 @@ def upload_photo(request):
         caption = request.POST.get('caption', '')
         description = request.POST.get('description', '')
         message = request.POST.get('message', '')
+        visibility = request.POST.get('visibility', 'all')
+        visible_names = [n.strip() for n in request.POST.get('visible_to', '').split(',') if n.strip()]
         files = request.FILES.getlist('images') + request.FILES.getlist('videos')
         album = None
         if album_id:
@@ -336,16 +338,20 @@ def upload_photo(request):
                         f = ContentFile(out.getvalue(), name=f.name)
                 except: pass
             if ext in VIDEO_EXTS:
-                Photo.objects.create(
+                p = Photo.objects.create(
                     album=album, uploaded_by=request.user.profile,
-                    video=f, caption=caption, description=description, message=message
+                    video=f, caption=caption, description=description, message=message,
+                    visibility=visibility
                 )
+                if visible_names: p.visible_to.set(Profile.objects.filter(display_name__in=visible_names))
                 vid_count += 1
             else:
-                photo = Photo.objects.create(
+                p = Photo.objects.create(
                     album=album, uploaded_by=request.user.profile,
-                    image=f, caption=caption, description=description, message=message
+                    image=f, caption=caption, description=description, message=message,
+                    visibility=visibility
                 )
+                if visible_names: p.visible_to.set(Profile.objects.filter(display_name__in=visible_names))
                 img_count += 1
         parts = []
         if img_count: parts.append(f'{img_count} 张照片')
@@ -374,10 +380,13 @@ def upload_photo(request):
         target_albums = Album.objects.filter(
             is_public=True, name__icontains=uploader_name
         ).filter(name__icontains=target_name)
+    import json as jmod
+    all_names_json = jmod.dumps(list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True)), ensure_ascii=False)
     return render(request, 'memories/upload_photo.html', {
         'albums': my_albums,
         'target_name': target_name,
         'target_albums': target_albums,
+        'all_names_json': all_names_json,
     })
 
 @login_required

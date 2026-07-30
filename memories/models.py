@@ -153,6 +153,9 @@ class Photo(models.Model):
     image = models.ImageField(upload_to='user_photos/', blank=True, null=True, verbose_name='图片')
     video = models.FileField(upload_to='user_videos/', blank=True, null=True, verbose_name='视频')
     caption = models.CharField(max_length=200, blank=True, verbose_name='描述')
+    VISIBILITY_CHOICES = [('all', '全部人可见'), ('target', '仅对方可见'), ('selected', '部分人可见')]
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='all', verbose_name='可见范围')
+    visible_to = models.ManyToManyField('Profile', blank=True, related_name='visible_photos', verbose_name='指定可见的人')
     description = models.TextField(max_length=1000, blank=True, verbose_name='详细描述（可被搜索）')
     message = models.CharField(max_length=500, blank=True, verbose_name='留言')
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')

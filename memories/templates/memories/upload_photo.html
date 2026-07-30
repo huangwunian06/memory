@@ -28,7 +28,50 @@
         <label>说明：</label><input type="text" name="caption"><br><br>
         <label>详细描述（可被搜索）：</label><textarea name="description" rows="2" style="width:100%;max-width:100%;"></textarea><br><br>
         <label>留言（对方可见）：</label><textarea name="message" rows="2" style="width:100%;max-width:100%;" placeholder="想对TA说的话..."></textarea><br><br>
+        {% if target_name %}
+        <label>可见范围：</label>
+        <select name="visibility" onchange="document.getElementById('vis-selected').style.display=this.value=='selected'?'block':'none'">
+            <option value="all">全部人可见</option>
+            <option value="target">仅 {{ target_name }} 可见</option>
+            <option value="selected">部分人可见</option>
+        </select>
+        <div id="vis-selected" style="display:none;margin-top:0.5rem;">
+            <input type="text" id="vis-search" placeholder="搜索姓名..." oninput="filterVis(this.value)" style="width:100%;max-width:100%;">
+            <div id="vis-list" style="max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:8px;padding:0.5rem;margin-top:0.3rem;"></div>
+            <small style="color:#888;">已选：<span id="vis-count">0</span> 人</small>
+            <input type="hidden" name="visible_to" id="vis-hidden">
+        </div>
+        <br>
+        {% endif %}
         <button class="btn" type="submit" onclick="this.textContent='上传中...';this.disabled=true;this.form.submit()">上传</button>
+    </form>
+</div>
+
+{% if target_name %}
+<script>
+// 花名册多选
+var allNames = {{ all_names_json|safe }};
+var selected = [];
+function renderVisList(filter) {
+    var html = '';
+    allNames.forEach(function(n) {
+        if (filter && n.indexOf(filter) < 0) return;
+        var sel = selected.indexOf(n) >= 0;
+        html += '<label style="display:block;padding:2px 0;cursor:pointer;"><input type="checkbox" '+(sel?'checked':'')+' onchange="toggleVis(\''+n+'\')"> '+n+'</label>';
+    });
+    document.getElementById('vis-list').innerHTML = html || '无匹配';
+}
+function toggleVis(name) {
+    var i = selected.indexOf(name);
+    if (i >= 0) selected.splice(i, 1);
+    else selected.push(name);
+    document.getElementById('vis-count').textContent = selected.length;
+    document.getElementById('vis-hidden').value = selected.join(',');
+}
+function filterVis(v) { renderVisList(v); }
+renderVisList('');
+</script>
+{% endif %}
     </form>
 </div>
 {% endblock %}
