@@ -22,7 +22,7 @@
                 {% endif %}
                 {% if p.caption %}<p style="font-size:0.85rem;margin:0.3rem 0;">{{ p.caption }}</p>{% endif %}
                 {% if p.uploaded_by == user.profile %}
-                <a href="{% url 'photo_delete' photo_id=p.id %}" style="position:absolute;top:4px;right:4px;background:rgba(231,76,60,0.85);color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:0.8rem;z-index:5;" onclick="return confirm('确定删除？')" title="删除">✕</a>
+                <a href="{% url 'photo_delete' photo_id=p.id %}" style="position:absolute;top:-10px;right:-10px;background:rgba(231,76,60,0.65);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:0.8rem;z-index:5;" onclick="return confirm('确定删除？')" title="删除">✕</a>
                 {% endif %}
                 <p style="color:#888;font-size:0.7rem;margin:0;">📅 {{ p.uploaded_at|date:"H:i" }} · 📦 {{ p.file_size }}</p>
                 {% if p.message %}<div style="font-size:0.8rem;color:#555;margin-top:0.3rem;padding:0.3rem 0.5rem;background:rgba(102,126,234,0.08);border-radius:6px;border-left:2px solid #667eea;">💬 {{ p.message }}</div>{% endif %}
