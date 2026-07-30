@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>🕵️ 副管理操作记录</h1>
+<p style="color:#888;margin-bottom:1rem;">共 {{ total }} 条操作记录。点击「历史记录」可查看字段变更细节并撤销。</p>
+
+<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+    <thead>
+        <tr style="background:#667eea;color:white;">
+            <th style="padding:8px 12px;text-align:left;">时间</th>
+            <th style="padding:8px 12px;text-align:left;">操作人</th>
+            <th style="padding:8px 12px;text-align:left;">操作</th>
+            <th style="padding:8px 12px;text-align:left;">模型</th>
+            <th style="padding:8px 12px;text-align:left;">对象</th>
+            <th style="padding:8px 12px;text-align:left;">变更详情</th>
+            <th style="padding:8px 12px;text-align:left;">操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr style="border-bottom:1px solid #eee;{% cycle '' 'background:#fafafa;' %}">
+            <td style="padding:6px 12px;white-space:nowrap;">{{ row.time|date:"Y-m-d H:i:s" }}</td>
+            <td style="padding:6px 12px;font-weight:bold;">{{ row.user }}</td>
+            <td style="padding:6px 12px;">{{ row.action }}</td>
+            <td style="padding:6px 12px;color:#888;">{{ row.model }}</td>
+            <td style="padding:6px 12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;">{{ row.object }}</td>
+            <td style="padding:6px 12px;font-size:0.8rem;color:#666;max-width:200px;">{{ row.change_message }}</td>
+            <td style="padding:6px 12px;white-space:nowrap;">
+                {% if row.history_url %}
+                <a href="{{ row.history_url }}" style="background:#667eea;color:white;padding:3px 10px;border-radius:12px;text-decoration:none;font-size:0.8rem;">📋 历史记录</a>
+                {% endif %}
+                {% if row.obj_url %}
+                <a href="{{ row.obj_url }}" style="background:#27ae60;color:white;padding:3px 10px;border-radius:12px;text-decoration:none;font-size:0.8rem;">📝 编辑</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="padding:2rem;text-align:center;color:#888;">暂无副管理操作记录</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if total_pages > 1 %}
+<div style="margin-top:1rem;text-align:center;">
+    {% if page > 1 %}
+    <a href="?page={{ page|add:"-1" }}" style="padding:6px 16px;background:#ddd;border-radius:8px;text-decoration:none;">← 上一页</a>
+    {% endif %}
+    <span style="margin:0 1rem;">第 {{ page }}/{{ total_pages }} 页</span>
+    {% if page < total_pages %}
+    <a href="?page={{ page|add:"1" }}" style="padding:6px 16px;background:#667eea;color:white;border-radius:8px;text-decoration:none;">下一页 →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<div style="margin-top:2rem;padding:12px;background:#f0f4ff;border-radius:8px;font-size:0.85rem;">
+    <p style="margin:0;"><strong>💡 如何撤销操作？</strong></p>
+    <p style="margin:4px 0 0;">点击任意记录的「📋 历史记录」→ 在历史页面中可以看到该对象的所有修改版本 → 点击版本可查看旧值 → <strong>复制旧值手动改回</strong>即可。</p>
+</div>
+{% endblock %}

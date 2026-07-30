@@ -17,5 +17,23 @@
     <p style="font-size:0.85rem;color:#888;">已注册人脸数据的同学会显示 ✅ 已注册；⬜ 未注册的同学需在注册时上传基准照。</p>
     <a href="/admin/memories/facetrainingphoto/" style="display:inline-block;background:#667eea;color:white;padding:0.5rem 1rem;border-radius:20px;text-decoration:none;">进入训练基地 →</a>
 </div>
+
+{% if staff_logs %}
+<div style="background:#f0f4ff;border:1px solid #667eea;border-radius:8px;padding:16px;margin-bottom:20px;">
+    <h3 style="margin-top:0;">🕵️ 副管理最近操作</h3>
+    <table style="width:100%;font-size:0.85rem;border-collapse:collapse;">
+        {% for log in staff_logs %}
+        <tr style="border-bottom:1px solid #e0e0e0;">
+            <td style="padding:4px 8px;white-space:nowrap;color:#888;">{{ log.action_time|date:"m-d H:i" }}</td>
+            <td style="padding:4px 8px;font-weight:bold;">{{ log.user.username }}</td>
+            <td style="padding:4px 8px;">{% if log.action_flag == 1 %}➕{% elif log.action_flag == 2 %}✏️{% else %}🗑️{% endif %}</td>
+            <td style="padding:4px 8px;">{{ log.object_repr|truncatechars:40 }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <a href="{% url 'admin:staff-activity' %}" style="display:inline-block;margin-top:8px;color:#667eea;text-decoration:none;font-size:0.85rem;">查看全部操作记录 →</a>
+</div>
+{% endif %}
+
 {{ block.super }}
 {% endblock %}
