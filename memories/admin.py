@@ -10,6 +10,8 @@ from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHo
 
 # 重写 admin 首页加磁盘用量
 _original_index = admin.site.index
+
+
 def index_with_storage(request, extra_context=None):
     if extra_context is None:
         extra_context = {}
@@ -28,73 +30,115 @@ def index_with_storage(request, extra_context=None):
         extra_context['storage_pct'] = 0
         extra_context['storage_mb'] = 0
         extra_context['photo_count'] = 0
-    # 最近副管理操作
-    staff_logs = LogEntry.objects.filter(
-        user__is_superuser=False, user__is_staff=True
-    ).select_related('user', 'content_type')[:10]
-    extra_context['staff_logs'] = staff_logs
+
+    # 仅超管可见：副管理 admin 操作记录 + 用户行为日志
+    if request.user.is_superuser:
+        staff_logs = LogEntry.objects.filter(
+            user__is_superuser=False, user__is_staff=True
+        ).select_related('user', 'content_type')[:10]
+        extra_context['staff_logs'] = staff_logs
+        extra_context['user_activity_logs'] = ActivityLog.objects.select_related(
+            'user', 'related_photo'
+        ).order_by('-created_at')[:10]
+    else:
+        extra_context['staff_logs'] = []
+        extra_context['user_activity_logs'] = []
+    extra_context['is_superuser'] = request.user.is_superuser
     return _original_index(request, extra_context=extra_context)
+
+
 admin.site.index = index_with_storage
 
 
-# ========== 副管理操作记录视图 ==========
+# ========== 超管专属：副管理操作记录视图 ==========
 def staff_activity_view(request):
-    """展示所有非超管的 staff 操作记录，支持撤销"""
+    """仅超管可访问：展示非超管的 staff 操作记录 + 用户行为日志"""
+    if not request.user.is_superuser:
+        return TemplateResponse(request, 'admin/permission_denied.html', {
+            **admin.site.each_context(request),
+            'title': '无权限',
+        }, status=403)
+
     page = int(request.GET.get('page', 1))
     per_page = 50
-    logs = LogEntry.objects.filter(
-        user__is_superuser=False, user__is_staff=True
-    ).select_related('user', 'content_type').order_by('-action_time')
+    tab = request.GET.get('tab', 'staff')  # 'staff' or 'user'
 
-    total = logs.count()
-    total_pages = max(1, (total + per_page - 1) // per_page)
-    logs_page = logs[(page-1)*per_page:page*per_page]
-
-    # 为每条记录构建撤销链接
-    rows = []
-    for log in logs_page:
-        action = {ADDITION: '➕ 新增', CHANGE: '✏️ 修改', DELETION: '🗑️ 删除'}.get(log.action_flag, '❓')
-        obj_url = None
-        history_url = None
-        if log.content_type and log.object_id:
-            try:
-                obj_url = reverse(f'admin:{log.content_type.app_label}_{log.content_type.model}_change', args=[log.object_id])
-            except:
-                pass
-            try:
-                history_url = reverse(f'admin:{log.content_type.app_label}_{log.content_type.model}_history', args=[log.object_id])
-            except:
-                pass
-        rows.append({
-            'time': log.action_time,
-            'user': log.user.username,
-            'action': action,
-            'model': log.content_type.model if log.content_type else '',
-            'object': log.object_repr[:80],
-            'change_message': log.get_change_message() if log.action_flag != DELETION else '(已删除，不可恢复)',
-            'obj_url': obj_url,
-            'history_url': history_url,
-        })
+    if tab == 'user':
+        logs = ActivityLog.objects.select_related('user', 'related_photo').order_by('-created_at')
+        total = logs.count()
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        logs_page = logs[(page - 1) * per_page:page * per_page]
+        rows = []
+        for log in logs_page:
+            thumb = log.thumbnail_url()
+            rows.append({
+                'time': log.created_at,
+                'user': log.user.display_name,
+                'action': log.action,
+                'model': 'Photo' if log.related_photo else '',
+                'object': log.detail[:80],
+                'change_message': '',
+                'obj_url': f'/admin/memories/photo/{log.related_photo.id}/change/' if log.related_photo else None,
+                'history_url': None,
+                'thumbnail': thumb,
+            })
+    else:
+        logs = LogEntry.objects.filter(
+            user__is_superuser=False, user__is_staff=True
+        ).select_related('user', 'content_type').order_by('-action_time')
+        total = logs.count()
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        logs_page = logs[(page - 1) * per_page:page * per_page]
+        rows = []
+        for log in logs_page:
+            action = {ADDITION: '➕ 新增', CHANGE: '✏️ 修改', DELETION: '🗑️ 删除'}.get(log.action_flag, '❓')
+            obj_url = None
+            history_url = None
+            if log.content_type and log.object_id:
+                try:
+                    obj_url = reverse(f'admin:{log.content_type.app_label}_{log.content_type.model}_change', args=[log.object_id])
+                except:
+                    pass
+                try:
+                    history_url = reverse(f'admin:{log.content_type.app_label}_{log.content_type.model}_history', args=[log.object_id])
+                except:
+                    pass
+            rows.append({
+                'time': log.action_time,
+                'user': log.user.username,
+                'action': action,
+                'model': log.content_type.model if log.content_type else '',
+                'object': log.object_repr[:80],
+                'change_message': log.get_change_message() if log.action_flag != DELETION else '(已删除，不可恢复)',
+                'obj_url': obj_url,
+                'history_url': history_url,
+                'thumbnail': None,
+            })
 
     context = {
         **admin.site.each_context(request),
-        'title': '副管理操作记录',
+        'title': '操作记录',
         'rows': rows,
         'page': page,
         'total_pages': total_pages,
         'total': total,
+        'tab': tab,
     }
     return TemplateResponse(request, 'admin/staff_activity.html', context)
 
 
 # 将自定义视图注册到 admin URL
 _admin_get_urls = admin.site.get_urls
+
+
 def get_urls():
     urls = _admin_get_urls()
     custom_urls = [
         path('staff-activity/', admin.site.admin_view(staff_activity_view), name='staff-activity'),
     ]
     return custom_urls + urls
+
+
 admin.site.get_urls = get_urls
 
 
@@ -450,17 +494,45 @@ class CommentAdmin(admin.ModelAdmin):
 
 @admin.register(ActivityLog)
 class ActivityLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'action', 'detail', 'created_at')
+    list_display = ('thumbnail_preview', 'user', 'action', 'detail_preview', 'created_at')
     list_filter = ('action',)
     search_fields = ('user__display_name', 'detail')
     date_hierarchy = 'created_at'
     fieldsets = (
-        ('日志详情', {'fields': ('user', 'action', 'detail', 'created_at')}),
+        ('日志详情', {'fields': ('user', 'action', 'detail', 'related_photo', 'created_at')}),
     )
-    readonly_fields = ('user', 'action', 'detail', 'created_at')
+    readonly_fields = ('user', 'action', 'detail', 'related_photo', 'created_at')
 
     def has_add_permission(self, request):
         return False
+
+    def has_module_permission(self, request):
+        """仅超管可见行为日志模块"""
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    @admin.display(description='预览')
+    def thumbnail_preview(self, obj):
+        if obj.related_photo and obj.related_photo.image:
+            return format_html(
+                '<img src="{}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;">',
+                obj.related_photo.image.url
+            )
+        if obj.related_photo and obj.related_photo.video:
+            return '🎬 视频'
+        return ''
+
+    @admin.display(description='详情')
+    def detail_preview(self, obj):
+        return obj.detail[:60]
 
 
 @admin.register(FaceTrainingPhoto)

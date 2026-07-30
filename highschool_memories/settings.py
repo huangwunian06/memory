@@ -84,3 +84,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 BAIDU_APP_ID = os.getenv('BAIDU_APP_ID', '')
 BAIDU_API_KEY = os.getenv('BAIDU_API_KEY', '')
 BAIDU_SECRET_KEY = os.getenv('BAIDU_SECRET_KEY', '')
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

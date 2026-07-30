@@ -296,6 +296,7 @@ class ActivityLog(models.Model):
     user = models.ForeignKey(Profile, on_delete=models.CASCADE, verbose_name='用户')
     action = models.CharField(max_length=50, verbose_name='操作类型')
     detail = models.CharField(max_length=500, verbose_name='详情')
+    related_photo = models.ForeignKey('Photo', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='关联照片')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='时间')
 
     class Meta:
@@ -305,6 +306,14 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return f'{self.user.display_name} {self.action} @ {self.created_at.strftime("%m-%d %H:%M")}'
+
+    def thumbnail_url(self):
+        if self.related_photo:
+            if self.related_photo.image:
+                return self.related_photo.image.url
+            if self.related_photo.video:
+                return None  # video, no thumbnail
+        return None
 
 
 class SiteSetting(models.Model):

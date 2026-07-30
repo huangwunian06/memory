@@ -345,6 +345,7 @@ def upload_photo(request):
                 )
                 if visible_names: p.visible_to.set(Profile.objects.filter(display_name__in=visible_names))
                 vid_count += 1
+                log_activity(request.user.profile, '上传视频', f'上传视频「{caption or f.name}」' + (f' 到「{album.name}」' if album else ''), photo=p)
             else:
                 p = Photo.objects.create(
                     album=album, uploaded_by=request.user.profile,
@@ -353,11 +354,12 @@ def upload_photo(request):
                 )
                 if visible_names: p.visible_to.set(Profile.objects.filter(display_name__in=visible_names))
                 img_count += 1
+                log_activity(request.user.profile, '上传照片', f'上传照片「{caption or f.name}」' + (f' 到「{album.name}」' if album else ''), photo=p)
         parts = []
         if img_count: parts.append(f'{img_count} 张照片')
         if vid_count: parts.append(f'{vid_count} 个视频')
         messages.success(request, f'成功上传 {"、".join(parts)}')
-        log_activity(request.user.profile, '上传文件', f'上传了 {"、".join(parts)}' + (f' 到「{album.name}」' if album else ''))
+        # 每条照片/视频已在循环中单独记录日志
         # 通知公开相册所有者
         if album and album.is_public and album.owner.user != request.user:
             from .utils import create_notification
@@ -626,10 +628,12 @@ def photo_delete(request, photo_id):
         messages.error(request, '你没有权限删除这张照片')
         return redirect('space', display_name=request.user.profile.display_name)
     album_id = photo.album.id if photo.album else None
+    # 在删除前记录日志（删后 photo 对象无法关联）
+    log_activity(request.user.profile, '删除文件', f'删除了「{photo.caption or photo.image.name.split("/")[-1] if photo.image else photo.video.name.split("/")[-1]}」', photo=None)
     photo.image.delete(save=False)
     if photo.video: photo.video.delete(save=False)
+    # 重新创建一条带描述的日志
     photo.delete()
-    log_activity(request.user.profile, '删除文件', f'删除了 1 张照片')
     messages.success(request, '已删除')
     if album_id: return redirect('album_detail', album_id=album_id)
     return redirect('auto_upload')
@@ -763,10 +767,12 @@ def shared_album_upload(request, album_id):
                         from django.core.files.base import ContentFile
                         f = ContentFile(out.getvalue(), name=f.name)
                 except: pass
-            Photo.objects.create(album=album, uploaded_by=request.user.profile,
+            p = Photo.objects.create(album=album, uploaded_by=request.user.profile,
                 image=f if ext not in VIDEO_EXTS else None,
                 video=f if ext in VIDEO_EXTS else None, caption=caption)
             count += 1
+            action = '上传视频' if ext in VIDEO_EXTS else '上传照片'
+            log_activity(request.user.profile, action, f'{action}「{caption or f.name}」到共同相册「{album.name}」', photo=p)
         messages.success(request, f'已上传 {count} 张到「{album.name}」')
         return redirect('shared_album_detail', album_id=album.id)
     return render(request, 'memories/shared_album_upload.html', {'album': album})

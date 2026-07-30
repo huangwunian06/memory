@@ -35,10 +35,12 @@ def detect_faces_in_photo(image_path):
     return faces
 
 
-def log_activity(user_profile, action, detail):
-    """记录用户行为轨迹"""
+def log_activity(user_profile, action, detail, photo=None):
+    """记录用户行为轨迹，可关联照片"""
     from .models import ActivityLog
-    return ActivityLog.objects.create(user=user_profile, action=action, detail=detail)
+    return ActivityLog.objects.create(
+        user=user_profile, action=action, detail=detail, related_photo=photo
+    )
 
 
 def create_notification(recipient_user, sender_profile, title, message, related_url='', notification_type='photo_upload'):

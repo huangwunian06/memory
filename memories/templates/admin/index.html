@@ -18,9 +18,10 @@
     <a href="/admin/memories/facetrainingphoto/" style="display:inline-block;background:#667eea;color:white;padding:0.5rem 1rem;border-radius:20px;text-decoration:none;">进入训练基地 →</a>
 </div>
 
-{% if staff_logs %}
+{% if is_superuser %}
 <div style="background:#f0f4ff;border:1px solid #667eea;border-radius:8px;padding:16px;margin-bottom:20px;">
-    <h3 style="margin-top:0;">🕵️ 副管理最近操作</h3>
+    <h3 style="margin-top:0;">🕵️ 副管理最近 admin 操作</h3>
+    {% if staff_logs %}
     <table style="width:100%;font-size:0.85rem;border-collapse:collapse;">
         {% for log in staff_logs %}
         <tr style="border-bottom:1px solid #e0e0e0;">
@@ -31,7 +32,39 @@
         </tr>
         {% endfor %}
     </table>
-    <a href="{% url 'admin:staff-activity' %}" style="display:inline-block;margin-top:8px;color:#667eea;text-decoration:none;font-size:0.85rem;">查看全部操作记录 →</a>
+    {% else %}
+    <p style="color:#888;">暂无副管理操作</p>
+    {% endif %}
+</div>
+
+<div style="background:#f0fff0;border:1px solid #27ae60;border-radius:8px;padding:16px;margin-bottom:20px;">
+    <h3 style="margin-top:0;">📸 用户最近行为日志</h3>
+    {% if user_activity_logs %}
+    <table style="width:100%;font-size:0.85rem;border-collapse:collapse;">
+        {% for log in user_activity_logs %}
+        <tr style="border-bottom:1px solid #e0e0e0;">
+            <td style="padding:4px 4px;width:50px;">
+                {% if log.related_photo and log.related_photo.image %}
+                <img src="{{ log.related_photo.image.url }}" style="width:40px;height:35px;object-fit:cover;border-radius:4px;">
+                {% elif log.related_photo and log.related_photo.video %}
+                <span style="font-size:1.2rem;">🎬</span>
+                {% endif %}
+            </td>
+            <td style="padding:4px 8px;white-space:nowrap;color:#888;">{{ log.created_at|date:"m-d H:i" }}</td>
+            <td style="padding:4px 8px;font-weight:bold;">{{ log.user.display_name }}</td>
+            <td style="padding:4px 8px;">{{ log.action }}</td>
+            <td style="padding:4px 8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;">{{ log.detail }}</td>
+            {% if log.related_photo %}
+            <td style="padding:4px 8px;"><a href="/admin/memories/photo/{{ log.related_photo.id }}/change/" style="color:#667eea;text-decoration:none;font-size:0.75rem;">📝 查看</a></td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:#888;">暂无用户行为记录</p>
+    {% endif %}
+    <a href="{% url 'admin:staff-activity' %}?tab=user" style="display:inline-block;margin-right:12px;margin-top:8px;color:#27ae60;text-decoration:none;font-size:0.85rem;">📸 查看全部用户行为日志 →</a>
+    <a href="{% url 'admin:staff-activity' %}?tab=staff" style="display:inline-block;margin-top:8px;color:#667eea;text-decoration:none;font-size:0.85rem;">🕵️ 查看全部副管理操作 →</a>
 </div>
 {% endif %}
 
