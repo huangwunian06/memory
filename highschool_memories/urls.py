@@ -30,6 +30,7 @@ urlpatterns = [
     path('photo/<int:photo_id>/delete/', views.photo_delete, name='photo_delete'),
     path('comment/<int:comment_id>/delete/', views.comment_delete, name='comment_delete'),
     path('photo/<int:photo_id>/', views.photo_detail, name='photo_detail'),
+    path('classmates/', views.classmates, name='classmates'),
     path('search/', views.search, name='search'),
     path('shared/', views.shared_albums, name='shared_albums'),
     path('shared/create/', views.shared_album_create, name='shared_album_create'),

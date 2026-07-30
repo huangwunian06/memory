@@ -628,6 +628,32 @@ def comment_delete(request, comment_id):
     return redirect('photo_detail', photo_id=pid)
 
 
+# ========== 同学录 ==========
+@login_required
+def classmates(request):
+    query = request.GET.get('q', '').strip()
+    if query:
+        entries = PendingRegistration.objects.filter(name__icontains=query).order_by('name')
+    else:
+        entries = PendingRegistration.objects.all().order_by('name')
+    # 构建简要信息
+    roster_data = []
+    for r in entries:
+        profile = Profile.objects.filter(display_name=r.name).first()
+        roster_data.append({
+            'name': r.name,
+            'registered': profile is not None,
+            'bio': profile.bio if profile else '',
+        })
+    import json as jmod
+    return render(request, 'memories/classmates.html', {
+        'entries': entries,
+        'roster_data': roster_data,
+        'roster_json': jmod.dumps(roster_data, ensure_ascii=False),
+        'query': query,
+    })
+
+
 # ========== 搜索 ==========
 @login_required
 def search(request):

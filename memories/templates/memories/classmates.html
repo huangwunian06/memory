@@ -1,0 +1,80 @@
+{% extends 'memories/base.html' %}
+{% block content %}
+<style>
+    .cm-card {
+        display:flex;align-items:center;gap:0.8rem;padding:0.8rem 1rem;
+        background:var(--card-bg);border-radius:12px;cursor:pointer;
+        transition:transform 0.2s,box-shadow 0.2s;margin-bottom:0.4rem;
+    }
+    .cm-card:hover { transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.1); }
+    .cm-avatar {
+        width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+        font-weight:bold;color:white;flex-shrink:0;font-size:1rem;
+        background:linear-gradient(135deg,#667eea,#764ba2);
+    }
+    .cm-info { flex:1;min-width:0; }
+    .cm-name { font-weight:bold; }
+    .cm-registered { font-size:0.75rem; }
+    #cm-popup {
+        display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+        background:rgba(0,0,0,0.5);z-index:1000;
+    }
+    #cm-popup-card {
+        position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:var(--card-bg);border-radius:16px;padding:1.5rem;min-width:280px;
+        max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,0.3);
+    }
+</style>
+
+<div style="background:rgba(255,255,255,0.85);border-radius:16px;padding:2rem;min-height:80vh;max-width:600px;margin:0 auto;">
+    <h2>📖 同学录</h2>
+    <form method="get" style="margin-bottom:1rem;">
+        <input type="text" name="q" value="{{ query }}" placeholder="搜索同学姓名..." style="width:100%;padding:0.6rem;border-radius:10px;border:1px solid #ddd;font-size:1rem;">
+    </form>
+    <p style="color:#888;font-size:0.85rem;">共 {{ entries|length }} 人</p>
+
+    {% for entry in entries %}
+    <div class="cm-card" onclick="showCmPopup('{{ entry.name }}')">
+        <div class="cm-avatar">{{ entry.name|slice:":1" }}</div>
+        <div class="cm-info">
+            <div class="cm-name">{{ entry.name }}</div>
+            <div class="cm-registered" style="color:{% if entry.is_taken %}#27ae60{% else %}#e67e22{% endif %};">
+                {% if entry.is_taken %}✅ 已注册{% else %}📋 暂未注册{% endif %}
+            </div>
+        </div>
+        <a href="{% url 'space' display_name=entry.name %}" style="color:#667eea;text-decoration:none;font-size:0.85rem;" onclick="event.stopPropagation()">🏠</a>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="cm-popup" onclick="this.style.display='none'">
+    <div id="cm-popup-card" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+var rosterData = {{ roster_json|safe }};
+function showCmPopup(name) {
+    var card = document.getElementById('cm-popup-card');
+    var entry = rosterData.find(function(e){return e.name===name});
+    if (!entry) return;
+    var html = '<h3>👤 '+entry.name+'</h3>';
+    if (entry.registered) {
+        html += '<p style="color:#27ae60;">✅ 已注册</p>';
+        if (entry.bio) html += '<p style="color:#888;">'+entry.bio+'</p>';
+        html += '<div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">';
+        html += '<a class="btn" href="/space/'+encodeURIComponent(name)+'/">🏠 个人空间</a>';
+        html += '<a class="btn" href="/photo/upload/?target='+encodeURIComponent(name)+'">📤 为TA上传</a>';
+        html += '</div>';
+    } else {
+        html += '<p style="color:#e67e22;">📋 暂未注册，快去邀请TA吧！</p>';
+        html += '<div style="margin-top:1rem;">';
+        html += '<a class="btn" href="/space/'+encodeURIComponent(name)+'/">🏠 个人主页</a>';
+        html += '<a class="btn" href="/photo/upload/?target='+encodeURIComponent(name)+'">📤 为TA上传</a>';
+        html += '</div>';
+    }
+    html += '<p style="margin-top:0.5rem;"><a href="javascript:void(0)" onclick="document.getElementById(\'cm-popup\').style.display=\'none\'" style="color:#888;font-size:0.8rem;">关闭</a></p>';
+    card.innerHTML = html;
+    document.getElementById('cm-popup').style.display = 'block';
+}
+</script>
+{% endblock %}
