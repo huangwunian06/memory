@@ -123,13 +123,14 @@ def auto_create_hotzones(sender, instance, created, **kwargs):
         if not created:
             instance.hotzones.all().delete()
         for face in faces:
+            # 以中心为基准放大1.5倍，方便点击
+            cx, cy = face['x'] + face['width']/2, face['y'] + face['height']/2
+            w2, h2 = min(face['width'] * 1.5, 20), min(face['height'] * 1.5, 20)
             FaceHotzone.objects.create(
-                photo=instance,
-                profile=None,
-                x=face['x'],
-                y=face['y'],
-                width=face['width'],
-                height=face['height']
+                photo=instance, profile=None,
+                x=max(0, cx - w2/2), y=max(0, cy - h2/2),
+                width=min(w2, 100 - max(0, cx - w2/2)),
+                height=min(h2, 100 - max(0, cy - h2/2))
             )
     except Exception as e:
         print(f"自动生成热区失败: {e}")
