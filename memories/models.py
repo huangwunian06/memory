@@ -100,15 +100,22 @@ class FaceHotzone(models.Model):
 
 @receiver(post_save, sender=ClassPhoto)
 def auto_create_hotzones(sender, instance, created, **kwargs):
-    """ClassPhoto 保存时自动调用百度人脸检测生成热区。
-    - 新建时自动触发
-    - 更新时如果没有任何热区记录，也自动触发（方便在 admin 点 Save 重新生成）
-    """
     if not instance.image:
         return
-    # 更新时如果已有热区则跳过，避免重复生成
     if not created and instance.hotzones.exists():
         return
+    # 压缩大图
+    from PIL import Image as PILImage
+    import io as sio
+    try:
+        img = PILImage.open(instance.image.path)
+        if img.width > 2560 or img.height > 2560:
+            img.thumbnail((2560, 2560), PILImage.LANCZOS)
+            out = sio.BytesIO()
+            img.save(out, format='JPEG', quality=85)
+            with open(instance.image.path, 'wb') as f:
+                f.write(out.getvalue())
+    except: pass
     from .utils import detect_faces_in_photo
     try:
         faces = detect_faces_in_photo(instance.image.path)
