@@ -167,12 +167,8 @@
     /* === 响应式 === */
     @media (max-width: 768px) {
         .photo-item { width: 95% !important; }
-        a[href*="auto_upload"], a[href*="shared_albums"], a[href*="classmates"] {
-            right: 2px !important; padding: 0.35rem 0.5rem !important; font-size: 0.65rem !important; border-radius:12px !important;
-        }
-        a[href*="auto_upload"] { top: 28% !important; }
-        a[href*="shared_albums"] { top: 38% !important; }
-        a[href*="classmates"] { top: 48% !important; }
+        #home-btns { right: 4px !important; gap: 6px !important; }
+        .home-btn { padding: 0.4rem 0.6rem !important; font-size: 0.7rem !important; border-radius: 16px !important; }
         /* 移动端热区缩小、减淡 */
         .lb-hotzone { border-width: 1px !important; }
         .lb-hotzone.has-profile:hover, .lb-hotzone.has-profile.active {
@@ -196,9 +192,11 @@
 <div class="photo-showcase">
     <h1 style="color: white; text-shadow: 2px 2px 10px rgba(0,0,0,0.5);">🎓 {{ display_name }}，欢迎回到班级回忆</h1>
     <p style="color: rgba(255,255,255,0.7); margin-bottom: 10px;">👆 点击合照可放大查看，再点击人物可聚焦</p>
-    <a href="{% url 'auto_upload' %}" class="btn" style="position:fixed;right:24px;top:40%;z-index:50;font-size:1rem;padding:0.8rem 1.5rem;background:linear-gradient(135deg,#667eea,#764ba2);box-shadow:0 8px 30px rgba(102,126,234,0.4);animation:float 3s ease-in-out infinite;">🤖 自动上传</a>
-    <a href="{% url 'shared_albums' %}" class="btn" style="position:fixed;right:24px;top:55%;z-index:50;font-size:1rem;padding:0.8rem 1.5rem;background:linear-gradient(135deg,#e67e22,#e74c3c);box-shadow:0 8px 30px rgba(230,126,34,0.4);animation:float 3s ease-in-out 0.5s infinite;">👥 共同相册</a>
-    <a href="{% url 'classmates' %}" class="btn" style="position:fixed;right:24px;top:70%;z-index:50;font-size:1rem;padding:0.8rem 1.5rem;background:linear-gradient(135deg,#27ae60,#2ecc71);box-shadow:0 8px 30px rgba(39,174,96,0.4);animation:float 3s ease-in-out 0.8s infinite;">📖 同学录</a>
+    <div style="position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:12px;" id="home-btns">
+        <a href="{% url 'auto_upload' %}" class="home-btn" style="display:block;padding:0.7rem 1.2rem;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:25px;text-decoration:none;font-size:0.95rem;font-weight:500;box-shadow:0 6px 20px rgba(102,126,234,0.4);text-align:center;animation:float 3s ease-in-out infinite;">🤖 自动上传</a>
+        <a href="{% url 'shared_albums' %}" class="home-btn" style="display:block;padding:0.7rem 1.2rem;background:linear-gradient(135deg,#e67e22,#e74c3c);color:white;border-radius:25px;text-decoration:none;font-size:0.95rem;font-weight:500;box-shadow:0 6px 20px rgba(230,126,34,0.4);text-align:center;animation:float 3s ease-in-out 0.5s infinite;">👥 共同相册</a>
+        <a href="{% url 'classmates' %}" class="home-btn" style="display:block;padding:0.7rem 1.2rem;background:linear-gradient(135deg,#27ae60,#2ecc71);color:white;border-radius:25px;text-decoration:none;font-size:0.95rem;font-weight:500;box-shadow:0 6px 20px rgba(39,174,96,0.4);text-align:center;animation:float 3s ease-in-out 0.8s infinite;">📖 同学录</a>
+    </div>
     <script id="profiles-data" type="application/json">{{ profiles_json|safe }}</script>
     <script>window.currentUserName = "{{ current_user_name|escapejs }}";</script>
     {% for photo in photos %}
