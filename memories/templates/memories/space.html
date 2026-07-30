@@ -84,5 +84,5 @@
 <p>暂无他人分享的内容</p>
 {% endif %}
 
-<a href="{% url 'photos_by_others' display_name=profile.display_name|default:profile.name %}" style="display:inline-block;margin-top:0.5rem;color:#667eea;text-decoration:none;font-size:0.9rem;">📋 按上传者查看全部 →</a>
+{% if is_registered %}<a href="{% url 'photos_by_others' display_name=profile.display_name %}" style="display:inline-block;margin-top:0.5rem;color:#667eea;text-decoration:none;font-size:0.9rem;">📋 按上传者查看全部 →</a>{% endif %}
 {% endblock %}
