@@ -5,6 +5,9 @@
   <p>{{ album.description }}</p>
   <p>创建者：{{ album.owner.display_name }}</p>
   <a class="btn" href="{% url 'upload_photo' %}?album_id={{ album.id }}">📤 上传照片</a>
+  {% if album.owner == user.profile %}
+  <a class="btn del-btn" href="{% url 'album_delete' album_id=album.id %}" onclick="return confirm('删除相册及其中所有照片？此操作不可恢复！')">🗑️ 删除相册</a>
+  {% endif %}
 </div>
 
 {% if photos %}

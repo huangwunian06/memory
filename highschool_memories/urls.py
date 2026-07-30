@@ -15,6 +15,7 @@ urlpatterns = [
     path('profile/edit/', views.edit_profile, name='edit_profile'),
     path('album/create/', views.create_album, name='create_album'),
     path('album/<int:album_id>/', views.album_detail, name='album_detail'),
+    path('album/<int:album_id>/delete/', views.album_delete, name='album_delete'),
     path('photo/upload/', views.upload_photo, name='upload_photo'),
     path('timeline/', views.timeline, name='timeline'),
     path('timeline/create/', views.create_event, name='create_event'),

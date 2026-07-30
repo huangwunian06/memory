@@ -242,6 +242,20 @@ def space(request, display_name):
     })
 
 
+# ========== 相册删除 ==========
+@login_required
+def album_delete(request, album_id):
+    album = get_object_or_404(Album, id=album_id)
+    if album.owner != request.user.profile:
+        messages.error(request, '仅相册创建者可删除')
+        return redirect('space', display_name=request.user.profile.display_name)
+    album_name = album.name
+    album.delete()
+    log_activity(request.user.profile, '删除相册', f'删除了相册「{album_name}」')
+    messages.success(request, f'相册「{album_name}」已删除')
+    return redirect('space', display_name=request.user.profile.display_name)
+
+
 # ========== 相册管理 ==========
 @login_required
 def create_album(request):
