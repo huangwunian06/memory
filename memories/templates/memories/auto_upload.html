@@ -29,7 +29,10 @@
         <h4>⚠️ 待手动分配的照片 ({{ pending|length }})</h4>
         {% for p in pending %}
         <div style="display:flex;align-items:center;gap:0.3rem;margin:0.4rem 0;flex-wrap:wrap;padding:0.4rem;background:rgba(0,0,0,0.03);border-radius:8px;">
-            <span style="flex:1;min-width:100px;font-size:0.85rem;">📷 {{ p.image.name|default:p.video.name }}</span>
+            <span style="flex:1;min-width:100px;font-size:0.85rem;display:flex;align-items:center;gap:0.5rem;">
+                {% if p.image %}<img src="{{ p.image.url }}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="event.stopPropagation();openM('{{ p.image.url }}',{% if p.video %}true{% else %}false{% endif %})" title="点击放大">{% endif %}
+                {{ p.image.name|default:p.video.name }}
+            </span>
             <form method="post" style="display:flex;gap:0.3rem;align-items:center;">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="assign">

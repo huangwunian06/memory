@@ -621,7 +621,7 @@ def photo_delete(request, photo_id):
     log_activity(request.user.profile, '删除文件', f'删除了 1 张照片')
     messages.success(request, '已删除')
     if album_id: return redirect('album_detail', album_id=album_id)
-    return redirect('space', display_name=request.user.profile.display_name)
+    return redirect('auto_upload')
 
 
 # ========== 照片详情（浏览计数 + 评论） ==========
