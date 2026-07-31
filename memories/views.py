@@ -685,7 +685,6 @@ def photo_detail(request, photo_id):
     if request.method == 'POST':
         content = request.POST.get('content', '').strip()
         if content:
-            from .models import Comment
             Comment.objects.create(photo=photo, author=request.user.profile, content=content)
             log_activity(request.user.profile, '发表评论', f'在照片#{photo.id}下发表评论')
             messages.success(request, '评论已发表')
@@ -1039,7 +1038,6 @@ def toggle_like(request):
 @login_required
 def message_board(request):
     """留言板主页：自由留言 + 问题反馈"""
-    from .models import Message
     from django.core.paginator import Paginator
     tab = request.GET.get('tab', 'free')  # 'free' or 'feedback'
 
@@ -1103,7 +1101,6 @@ def message_reply(request, msg_id):
     if request.method == 'POST':
         content = request.POST.get('content', '').strip()
         if content:
-            from .models import Message
             reply = Message.objects.create(
                 author=request.user.profile, msg_type=msg.msg_type,
                 content=content, parent=msg
