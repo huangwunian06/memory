@@ -110,7 +110,7 @@
         </div>
         <div class="content">{{ m.content }}</div>
         {% if m.image %}<img src="{{ m.image.url }}" style="max-width:100%;max-height:300px;border-radius:8px;margin-top:0.5rem;" loading="lazy">{% endif %}
-        {% include 'memories/_like_button.html' with model_name='message' obj_id=m.id liked=m.id in msg_likes like_count=m.likes.count size='0.8rem' %}
+        {% include 'memories/_like_button.html' with model_name='message' obj_id=m.id liked=m.liked_by_user like_count=m.like_count size='0.8rem' %}
         {% if m.replies.all %}<span style="font-size:0.8rem;color:#888;">💬 {{ m.replies.count }} 条回复</span>{% endif %}
 
         <!-- 回复 -->

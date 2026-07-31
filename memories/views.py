@@ -698,17 +698,20 @@ def photo_detail(request, photo_id):
         content_type=ContentType.objects.get_for_model(Photo),
         object_id=photo.id
     ).values_list('object_id', flat=True))
-    comment_likes = set(Like.objects.filter(
+    comment_like_ids = set(Like.objects.filter(
         user=request.user.profile,
         content_type=ContentType.objects.get_for_model(Comment),
         object_id__in=comments.values_list('id', flat=True)
     ).values_list('object_id', flat=True))
+    # 给每条评论预标记是否已点赞
+    for c in comments:
+        c.liked_by_user = c.id in comment_like_ids
+        c.like_count = c.likes.count()
 
     return render(request, 'memories/photo_detail.html', {
         'photo': photo, 'comments': comments,
         'liked_photo': photo.id in user_likes,
         'photo_likes': photo.likes.count(),
-        'comment_likes': comment_likes,
     })
 
 
@@ -1066,15 +1069,17 @@ def message_board(request):
     # 点赞数据
     from .models import Like
     msg_ids = [m.id for m in msgs_page]
-    msg_likes = set(Like.objects.filter(
+    msg_like_ids = set(Like.objects.filter(
         user=request.user.profile,
         content_type=ContentType.objects.get_for_model(Message),
         object_id__in=msg_ids
     ).values_list('object_id', flat=True))
+    for m in msgs_page:
+        m.liked_by_user = m.id in msg_like_ids
+        m.like_count = m.likes.count()
 
     return render(request, 'memories/message_board.html', {
         'tab': tab, 'msgs': msgs_page, 'pinned': pinned,
-        'msg_likes': msg_likes,
     })
 
 

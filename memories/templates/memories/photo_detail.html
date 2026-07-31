@@ -30,7 +30,7 @@
             <a href="{% url 'comment_delete' comment_id=c.id %}" style="color:#e74c3c;font-size:0.7rem;margin-left:0.5rem;" onclick="return confirm('确定删除？')">删除</a>
             {% endif %}
             <p style="margin:0.2rem 0;">{{ c.content }}</p>
-            {% include 'memories/_like_button.html' with model_name='comment' obj_id=c.id liked=c.id in comment_likes like_count=c.likes.count size='0.75rem' %}
+            {% include 'memories/_like_button.html' with model_name='comment' obj_id=c.id liked=c.liked_by_user like_count=c.like_count size='0.75rem' %}
         </div>
         {% empty %}
         <p style="color:#888;">暂无评论</p>
