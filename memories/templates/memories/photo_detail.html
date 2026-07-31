@@ -13,6 +13,7 @@
         {% if photo.message %}<div style="background:var(--card-bg);padding:0.8rem;border-radius:8px;border-left:3px solid #667eea;margin:0.5rem 0;">💬 {{ photo.uploaded_by.display_name }}：{{ photo.message }}</div>{% endif %}
         <p style="color:#888;font-size:0.85rem;">上传者：{{ photo.uploaded_by.display_name }} · {{ photo.uploaded_at|date:"Y-m-d H:i" }}</p>
         <p style="color:#888;font-size:0.85rem;">👁️ 浏览 {{ photo.view_count }} 次</p>
+        {% include 'memories/_like_button.html' with model_name='photo' obj_id=photo.id liked=liked_photo like_count=photo_likes size='0.85rem' %}
         {% if photo.album %}<a class="btn" href="{% url 'album_detail' album_id=photo.album.id %}">📁 查看相册</a>{% endif %}
         <a class="btn" href="{{ photo.media_url }}" download>⬇ 下载</a>
         {% if photo.uploaded_by == user.profile %}<a class="btn del-btn" href="{% url 'photo_delete' photo_id=photo.id %}" onclick="return confirm('确定删除？')">🗑️ 删除</a>{% endif %}
@@ -29,6 +30,7 @@
             <a href="{% url 'comment_delete' comment_id=c.id %}" style="color:#e74c3c;font-size:0.7rem;margin-left:0.5rem;" onclick="return confirm('确定删除？')">删除</a>
             {% endif %}
             <p style="margin:0.2rem 0;">{{ c.content }}</p>
+            {% include 'memories/_like_button.html' with model_name='comment' obj_id=c.id liked=c.id in comment_likes like_count=c.likes.count size='0.75rem' %}
         </div>
         {% empty %}
         <p style="color:#888;">暂无评论</p>

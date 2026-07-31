@@ -6,7 +6,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils import timezone
-from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment, FaceTrainingPhoto, Message
+from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment, FaceTrainingPhoto, Message, Like
 
 # 重写 admin 首页加磁盘用量
 _original_index = admin.site.index
@@ -609,6 +609,14 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
                 self.message_user(request, f'❌ [{err_code}] {err_msg}', level='error')
         except Exception as e:
             self.message_user(request, f'❌ Baidu调用异常: {str(e)}', level='error')
+
+
+# ========== 点赞 ==========
+@admin.register(Like)
+class LikeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'content_type', 'object_id', 'created_at')
+    list_filter = ('content_type',)
+    search_fields = ('user__display_name',)
 
 
 # ========== 留言板 ==========

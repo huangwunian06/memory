@@ -44,6 +44,7 @@ urlpatterns = [
     path('messages/', views.message_board, name='message_board'),
     path('messages/<int:msg_id>/delete/', views.message_delete, name='message_delete'),
     path('messages/<int:msg_id>/reply/', views.message_reply, name='message_reply'),
+    path('like/', views.toggle_like, name='toggle_like'),
 ]
 
 if settings.DEBUG:

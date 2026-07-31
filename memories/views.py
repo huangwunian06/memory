@@ -4,13 +4,14 @@ import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.db.models import Q
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout as auth_logout
 from django.conf import settings
-from .models import InviteCode, PendingRegistration, Profile, ClassPhoto, FaceHotzone, Album, Photo, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, Comment
+from .models import InviteCode, PendingRegistration, Profile, ClassPhoto, FaceHotzone, Album, Photo, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, Comment, Message
 from .utils import get_face_client, log_activity
 
 
@@ -41,7 +42,12 @@ def register(request):
     if request.method == 'POST' and request.POST.get('step') == 'register':
         username = request.POST.get('username')
         password = request.POST.get('password')
+        confirm_password = request.POST.get('confirm_password')
         display_name = request.POST.get('display_name')
+
+        if password != confirm_password:
+            messages.error(request, '两次输入的密码不一致')
+            return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
 
         try:
             code_obj = InviteCode.objects.get(code=invite_code)
@@ -675,7 +681,7 @@ def photo_detail(request, photo_id):
     photo = get_object_or_404(Photo, id=photo_id)
     photo.view_count += 1
     photo.save(update_fields=['view_count'])
-    comments = photo.comments.all().select_related('author')
+    comments = photo.comments.all().select_related('author').prefetch_related('likes')
     if request.method == 'POST':
         content = request.POST.get('content', '').strip()
         if content:
@@ -684,7 +690,26 @@ def photo_detail(request, photo_id):
             log_activity(request.user.profile, '发表评论', f'在照片#{photo.id}下发表评论')
             messages.success(request, '评论已发表')
         return redirect('photo_detail', photo_id=photo.id)
-    return render(request, 'memories/photo_detail.html', {'photo': photo, 'comments': comments})
+
+    # 点赞数据
+    from .models import Like
+    user_likes = set(Like.objects.filter(
+        user=request.user.profile,
+        content_type=ContentType.objects.get_for_model(Photo),
+        object_id=photo.id
+    ).values_list('object_id', flat=True))
+    comment_likes = set(Like.objects.filter(
+        user=request.user.profile,
+        content_type=ContentType.objects.get_for_model(Comment),
+        object_id__in=comments.values_list('id', flat=True)
+    ).values_list('object_id', flat=True))
+
+    return render(request, 'memories/photo_detail.html', {
+        'photo': photo, 'comments': comments,
+        'liked_photo': photo.id in user_likes,
+        'photo_likes': photo.likes.count(),
+        'comment_likes': comment_likes,
+    })
 
 
 @login_required
@@ -978,6 +1003,35 @@ def auto_upload(request, target_name=None):
     return render(request, 'memories/auto_upload.html', {'target': target, 'pending': pending, 'all_names': all_names})
 
 
+# ========== 点赞 ==========
+@login_required
+def toggle_like(request):
+    """点赞/取消点赞（支持 Photo、Comment、Message）"""
+    if request.method != 'POST':
+        return redirect('home')
+    model_name = request.POST.get('model')
+    object_id = request.POST.get('object_id')
+    next_url = request.POST.get('next', '/')
+
+    model_map = {'photo': Photo, 'comment': Comment, 'message': Message}
+    model_class = model_map.get(model_name)
+    if not model_class:
+        messages.error(request, '无效的点赞目标')
+        return redirect(next_url)
+
+    obj = get_object_or_404(model_class, id=object_id)
+    ct = ContentType.objects.get_for_model(model_class)
+
+    from .models import Like
+    like = Like.objects.filter(user=request.user.profile, content_type=ct, object_id=obj.id).first()
+    if like:
+        like.delete()
+    else:
+        Like.objects.create(user=request.user.profile, content_type=ct, object_id=obj.id)
+
+    return redirect(next_url)
+
+
 # ========== 留言板 ==========
 @login_required
 def message_board(request):
@@ -1001,7 +1055,7 @@ def message_board(request):
         messages.success(request, '留言发布成功！')
         return redirect(f'/messages/?tab={msg_type}')
 
-    msgs = Message.objects.filter(msg_type=tab, parent__isnull=True).select_related('author').prefetch_related('replies')
+    msgs = Message.objects.filter(msg_type=tab, parent__isnull=True).select_related('author').prefetch_related('replies', 'likes')
     paginator = Paginator(msgs, 15)
     page = int(request.GET.get('page', 1))
     msgs_page = paginator.get_page(page)
@@ -1009,8 +1063,18 @@ def message_board(request):
     # 置顶内容
     pinned = SiteSetting.objects.filter(key='pinned_message').first()
 
+    # 点赞数据
+    from .models import Like
+    msg_ids = [m.id for m in msgs_page]
+    msg_likes = set(Like.objects.filter(
+        user=request.user.profile,
+        content_type=ContentType.objects.get_for_model(Message),
+        object_id__in=msg_ids
+    ).values_list('object_id', flat=True))
+
     return render(request, 'memories/message_board.html', {
         'tab': tab, 'msgs': msgs_page, 'pinned': pinned,
+        'msg_likes': msg_likes,
     })
 
 

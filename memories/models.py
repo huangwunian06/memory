@@ -2,6 +2,8 @@ import os
 import threading
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -182,6 +184,7 @@ class Album(models.Model):
 
 
 class Photo(models.Model):
+    likes = GenericRelation('Like')
     album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name='photos', null=True, blank=True, verbose_name='所属相册')
     uploaded_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='uploaded_photos', verbose_name='上传者')
     image = models.ImageField(upload_to='user_photos/', blank=True, null=True, verbose_name='图片')
@@ -289,6 +292,7 @@ class CorrectionRequest(models.Model):
         return f"修正: {self.photo.id} -> {self.suggested_profile}"
 # ========== 照片评论 ==========
 class Comment(models.Model):
+    likes = GenericRelation('Like')
     photo = models.ForeignKey('Photo', on_delete=models.CASCADE, related_name='comments', verbose_name='照片')
     author = models.ForeignKey('Profile', on_delete=models.CASCADE, verbose_name='评论者')
     content = models.TextField(max_length=500, verbose_name='评论内容')
@@ -356,8 +360,27 @@ class SiteSetting(models.Model):
         return self.key
 
 
+# ========== 点赞 ==========
+class Like(models.Model):
+    user = models.ForeignKey('Profile', on_delete=models.CASCADE, verbose_name='点赞者')
+    content_type = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='点赞时间')
+
+    class Meta:
+        verbose_name = '点赞'
+        verbose_name_plural = '点赞'
+        unique_together = ('user', 'content_type', 'object_id')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.display_name} ❤️ #{self.object_id}'
+
+
 # ========== 留言板 ==========
 class Message(models.Model):
+    likes = GenericRelation('Like')
     MSG_TYPES = [('free', '自由留言'), ('feedback', '问题反馈')]
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='messages', verbose_name='留言者')
     msg_type = models.CharField(max_length=10, choices=MSG_TYPES, default='free', verbose_name='留言类型')
