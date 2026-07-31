@@ -215,26 +215,32 @@ def space(request, display_name):
     is_registered = profile is not None
     is_owner = is_registered and (request.user.profile == profile)
 
+    my_albums = Album.objects.none()
+    gifted_albums = Album.objects.none()
+
     if is_registered:
         if is_owner:
-            albums = profile.albums.filter(album_type='personal', is_deleted=False)
+            personal = profile.albums.filter(album_type='personal', is_deleted=False)
+            my_albums = personal.filter(Q(created_by=profile) | Q(created_by__isnull=True))
+            gifted_albums = personal.exclude(Q(created_by=profile) | Q(created_by__isnull=True))
         else:
-            albums = profile.albums.filter(is_public=True, album_type='personal', is_deleted=False)
+            gifted_albums = profile.albums.filter(is_public=True, album_type='personal', is_deleted=False)
         public_photos = Photo.objects.filter(
             album__owner=profile, album__is_public=True
         ).exclude(uploaded_by=profile).select_related('uploaded_by').order_by('-uploaded_at')
         own_photos = Photo.objects.filter(uploaded_by=profile).select_related('album').order_by('-uploaded_at') if is_owner else Photo.objects.none()
     else:
-        albums = Album.objects.filter(is_public=True, name__icontains=display_name)
+        gifted_albums = Album.objects.filter(is_public=True, name__icontains=display_name)
         public_photos = Photo.objects.filter(
-            album__in=albums
+            album__in=gifted_albums
         ).exclude(uploaded_by__display_name=display_name).select_related('uploaded_by').order_by('-uploaded_at')
         own_photos = Photo.objects.none()
         profile = roster
 
     return render(request, 'memories/space.html', {
         'profile': profile,
-        'albums': albums,
+        'my_albums': my_albums,
+        'gifted_albums': gifted_albums,
         'own_photos': own_photos,
         'public_photos': public_photos,
         'is_owner': is_owner,
@@ -277,7 +283,7 @@ def create_album(request):
         description = request.POST.get('description', '')
         is_public = request.POST.get('is_public') == 'on'
         Album.objects.create(
-            owner=request.user.profile,
+            owner=request.user.profile, created_by=request.user.profile,
             name=name,
             description=description,
             is_public=is_public
@@ -319,12 +325,12 @@ def upload_photo(request):
             album_name = f'{request.user.profile.display_name}为{target_name}上传的相册'
             target_p = Profile.objects.filter(display_name=target_name).first()
             if target_p:
-                album, _ = Album.objects.get_or_create(owner=target_p, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
+                album, _ = Album.objects.get_or_create(owner=target_p, name=album_name, defaults={'is_public': True, 'album_type': 'personal', 'created_by': request.user.profile})
             else:
-                album = Album.objects.create(owner=request.user.profile, name=album_name, is_public=True, album_type='personal')
+                album = Album.objects.create(owner=request.user.profile, created_by=request.user.profile, name=album_name, is_public=True, album_type='personal')
         else:
             # 无相册也无target → 自动创建默认相册
-            album, _ = Album.objects.get_or_create(owner=request.user.profile, name='我的照片', defaults={'is_public': True, 'album_type': 'personal'})
+            album, _ = Album.objects.get_or_create(owner=request.user.profile, name='我的照片', defaults={'is_public': True, 'album_type': 'personal', 'created_by': request.user.profile})
         img_count = 0
         vid_count = 0
         from PIL import Image as PILImage
@@ -762,7 +768,7 @@ def shared_album_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')
         description = request.POST.get('description', '')
-        Album.objects.create(owner=request.user.profile, name=name, description=description, album_type='shared', is_public=True)
+        Album.objects.create(owner=request.user.profile, created_by=request.user.profile, name=name, description=description, album_type='shared', is_public=True)
         log_activity(request.user.profile, '创建共同相册', f'创建了共同相册「{name}」')
         messages.success(request, f'共同相册「{name}」已创建')
         return redirect('shared_albums')
@@ -865,7 +871,7 @@ def auto_upload(request, target_name=None):
             t = Profile.objects.filter(display_name=assign_to).first()
             if not t:
                 t = uploader
-            album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
+            album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal', 'created_by': uploader})
             photo.album = album
             photo.save()
             log_activity(uploader, '手动分配归属', f'{photo.id} 分配给 {assign_to}')
@@ -926,7 +932,7 @@ def auto_upload(request, target_name=None):
                     for t in targets:
                         f.seek(0)
                         album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
-                        album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
+                        album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal', 'created_by': uploader})
                         if is_video:
                             from .utils import save_video_file
                             video_file, _ = save_video_file(f)

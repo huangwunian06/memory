@@ -165,6 +165,7 @@ def auto_create_hotzones(sender, instance, created, **kwargs):
 class Album(models.Model):
     ALBUM_TYPES = [('personal', '个人相册'), ('shared', '共同相册')]
     owner = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='albums', verbose_name='所有者')
+    created_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='created_albums', null=True, blank=True, verbose_name='创建者')
     name = models.CharField(max_length=100, verbose_name='相册名称')
     description = models.TextField(blank=True, verbose_name='描述')
     is_public = models.BooleanField(default=False, verbose_name='是否公开到公共板块')

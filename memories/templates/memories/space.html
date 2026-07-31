@@ -28,19 +28,44 @@
     {% if is_registered %}<p>生日：{{ profile.birthday|default:"未设置" }}</p>{% endif %}
 </div>
 
-<h3>📁 我创建的相册</h3>
+{% if is_owner %}
+<h3>📁 我的相册</h3>
 <div class="grid">
-    {% for album in albums %}
-    {% if album.album_type == 'personal' and album.owner == profile %}
+    {% for album in my_albums %}
     <div class="card album-card">
         <a href="{% url 'album_detail' album.id %}">
             <img src="{% if album.photos.first %}{{ album.photos.first.image.url }}{% endif %}" alt="">
             <h4>{{ album.name }}</h4>
         </a>
     </div>
-    {% endif %}
-    {% empty %}<p>还没有相册</p>{% endfor %}
+    {% empty %}<p style="color:#888;">还没有自己的相册，<a href="{% url 'create_album' %}">创建一个</a></p>{% endfor %}
 </div>
+
+<h3>🎁 别人为我上传的相册</h3>
+<div class="grid">
+    {% for album in gifted_albums %}
+    <div class="card album-card" style="border-left:3px solid #e67e22;">
+        <a href="{% url 'album_detail' album.id %}">
+            <img src="{% if album.photos.first %}{{ album.photos.first.image.url }}{% endif %}" alt="">
+            <h4>{{ album.name }}</h4>
+            {% if album.created_by %}<small style="color:#e67e22;">来自 {{ album.created_by.display_name }}</small>{% endif %}
+        </a>
+    </div>
+    {% empty %}<p style="color:#888;">还没有人给你上传过相册</p>{% endfor %}
+</div>
+{% else %}
+<h3>📁 {{ profile.display_name|default:profile.name }} 的公开相册</h3>
+<div class="grid">
+    {% for album in gifted_albums %}
+    <div class="card album-card">
+        <a href="{% url 'album_detail' album.id %}">
+            <img src="{% if album.photos.first %}{{ album.photos.first.image.url }}{% endif %}" alt="">
+            <h4>{{ album.name }}</h4>
+        </a>
+    </div>
+    {% empty %}<p style="color:#888;">还没有公开相册</p>{% endfor %}
+</div>
+{% endif %}
 
 {% if is_owner and own_photos %}
 <h3>📸 我的照片</h3>
