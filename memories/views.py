@@ -92,14 +92,15 @@ def register(request):
                     tp.is_registered = True
                     tp.save()
                     log_activity(profile, '人脸注册成功', '基准照已录入百度人脸库')
+                    messages.success(request, '✅ 人脸识别已通过')
                 else:
                     log_activity(profile, '人脸注册失败', f'错误码{err_code}: {result.get("error_msg","")}')
-                    messages.warning(request, f'人脸注册失败(错误码{err_code})，管理员后续可补传')
+                    messages.error(request, f'❌ 人脸识别不通过（错误码{err_code}）：{result.get("error_msg","")}。管理员后续可补传')
             except Exception as e:
                 log_activity(profile, '人脸注册异常', str(e))
-                messages.warning(request, f'人脸注册异常，管理员后续可补传')
+                messages.error(request, f'❌ 人脸识别不通过：{str(e)[:100]}。管理员后续可补传')
         else:
-            messages.warning(request, '未上传基准照，人脸识别功能将无法使用，后续可补传')
+            messages.error(request, '❌ 未上传基准照，人脸识别不通过，后续可补传')
 
         messages.success(request, '注册成功！请登录。')
         log_activity(profile, '注册账号', f'{display_name} 注册了账号')
