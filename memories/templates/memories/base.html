@@ -138,6 +138,7 @@
             {% if user.is_authenticated %}
                 <a href="{% url 'space' display_name=user.profile.display_name %}">我的空间</a>
                 <a href="{% url 'timeline' %}">时间线</a>
+                <a href="{% url 'message_board' %}">留言板</a>
                 <a href="{% url 'edit_bg' %}">更换背景</a>
                 <form action="{% url 'search' %}" method="get" style="display:inline;margin:0;" onclick="event.stopPropagation()">
                     <input type="text" name="q" placeholder="搜索..." style="width:100px;padding:0.3rem 0.6rem;border-radius:16px;border:none;font-size:0.85rem;background:rgba(255,255,255,0.2);color:white;transition:width 0.3s;" onfocus="this.style.width='180px'" onblur="this.style.width='100px'">

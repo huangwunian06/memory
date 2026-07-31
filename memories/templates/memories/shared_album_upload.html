@@ -4,10 +4,9 @@
     <h2>📤 上传到「{{ album.name }}」</h2>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <label>选择图片（可多选）：</label>
-        <input type="file" name="images" multiple accept="image/*"><br><br>
-        <label>选择视频（可多选）：</label>
-        <input type="file" name="videos" multiple accept="video/*"><br><br>
+        <label>选择文件（图片/视频可同时多选）：</label>
+        <input type="file" name="images" multiple accept="image/*,video/*" onchange="document.getElementById('up-status').textContent='已选 '+(this.files.length)+' 个文件'"><br>
+        <span id="up-status" style="color:#888;font-size:0.85rem;"></span><br><br>
         <label>说明：</label><input type="text" name="caption"><br><br>
         <button class="btn" type="submit">上传</button>
     </form>

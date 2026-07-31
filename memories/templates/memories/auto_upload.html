@@ -16,11 +16,11 @@
     <div class="upload-intro">
         <h3>📖 功能说明</h3>
         <ol>
-            <li>选择一张或多张照片上传</li>
+            <li>选择照片/视频上传（可多选混传）</li>
             <li>系统<b>自动检测照片中的人脸</b>并尝试识别是谁</li>
             <li>识别成功的照片自动归入对应同学的相册</li>
             <li>如果照片中有多个人，分别归入各自的相册</li>
-            <li>未识别到人脸的照片<b>不会自动归类</b>，在下方手动选择归属</li>
+            <li>上传成功后，未匹配的照片可选"手动更改"分配或"查看"已匹配相册</li>
         </ol>
     </div>
 
@@ -30,7 +30,8 @@
         {% for p in pending %}
         <div style="display:flex;align-items:center;gap:0.3rem;margin:0.4rem 0;flex-wrap:wrap;padding:0.4rem;background:rgba(0,0,0,0.03);border-radius:8px;">
             <span style="flex:1;min-width:100px;font-size:0.85rem;display:flex;align-items:center;gap:0.5rem;">
-                {% if p.image %}<img src="{{ p.image.url }}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="event.stopPropagation();openM('{{ p.image.url }}',{% if p.video %}true{% else %}false{% endif %})" title="点击放大">{% endif %}
+                {% if p.image %}<img src="{{ p.image.url }}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="event.stopPropagation();openM('{{ p.image.url }}',false)" title="点击放大">{% endif %}
+                {% if p.video %}<span style="font-size:1.2rem;">🎬</span>{% endif %}
                 {{ p.image.name|default:p.video.name }}
             </span>
             <form method="post" style="display:flex;gap:0.3rem;align-items:center;">
@@ -53,13 +54,38 @@
 
     <form method="post" enctype="multipart/form-data" id="auto-upload-form">
         {% csrf_token %}
-        <label>选择照片（可多选）：</label>
-        <input type="file" name="images" multiple accept="image/*" required><br><br>
-        <label>照片描述（可被搜索）：</label>
+        <label>选择文件（照片/视频可同时多选）：</label>
+        <input type="file" name="images" multiple accept="image/*,video/*" required onchange="document.getElementById('up-status').textContent='已选 '+(this.files.length)+' 个文件'"><br>
+        <span id="up-status" style="color:#888;font-size:0.85rem;"></span><br><br>
+        <label>描述：</label>
         <input type="text" name="caption" style="width:100%;max-width:100%;"><br><br>
         <label>留言（对方可见）：</label>
         <textarea name="message" rows="2" style="width:100%;max-width:100%;"></textarea><br><br>
-        <button class="btn" type="submit">🚀 自动上传并识别人脸</button>
+        <button class="btn" type="submit" onclick="this.innerHTML='🔍 识别并上传中...';this.disabled=true;this.form.submit()">🚀 自动上传</button>
     </form>
 </div>
+<script>
+// 记忆模式：上次分配的名字优先
+(function(){
+    var storageKey = 'name_memory_auto_upload';
+    var recent = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    document.querySelectorAll('datalist[id^="rl-"]').forEach(function(dl){
+        recent.slice().reverse().forEach(function(n){
+            var opt = dl.querySelector('option[value="'+n+'"]');
+            if(opt){ dl.removeChild(opt); dl.insertBefore(opt, dl.firstChild); }
+        });
+    });
+    document.querySelectorAll('form[action] button[type="submit"]').forEach(function(btn){
+        btn.closest('form').addEventListener('submit', function(){
+            var input = this.querySelector('input[name="assign_to"]');
+            if(!input || !input.value) return;
+            var recent = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            recent = recent.filter(function(x){ return x !== input.value; });
+            recent.push(input.value);
+            if(recent.length > 8) recent.shift();
+            localStorage.setItem(storageKey, JSON.stringify(recent));
+        });
+    });
+})();
+</script>
 {% endblock %}

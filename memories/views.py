@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout as auth_logout
 from django.conf import settings
 from .models import InviteCode, PendingRegistration, Profile, ClassPhoto, FaceHotzone, Album, Photo, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, Comment
-from .utils import get_face_client, log_activity
+from .utils import get_face_client, log_activity, pinyin_sort_key
 
 
 # ========== 注册 ==========
@@ -51,16 +51,16 @@ def register(request):
 
         if User.objects.filter(username=username).exists():
             messages.error(request, '用户名已被使用')
-            return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
+            return render(request, 'memories/register.html', {'step': 'info', 'available_names': sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))})
 
         try:
             name_entry = PendingRegistration.objects.get(name=display_name)
             if name_entry.is_taken:
                 messages.error(request, '该姓名已被注册')
-                return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
+                return render(request, 'memories/register.html', {'step': 'info', 'available_names': sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))})
         except PendingRegistration.DoesNotExist:
             messages.error(request, '姓名不在班级名单中')
-            return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
+            return render(request, 'memories/register.html', {'step': 'info', 'available_names': sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))})
 
         user = User.objects.create_user(username=username, password=password)
         profile = Profile.objects.create(user=user, display_name=display_name)
@@ -99,7 +99,7 @@ def register(request):
         log_activity(profile, '注册账号', f'{display_name} 注册了账号')
         return redirect('login')
 
-    available_names = PendingRegistration.objects.filter(is_taken=False)
+    available_names = sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))
     return render(request, 'memories/register.html', {'step': 'info', 'available_names': available_names})
 
 
@@ -338,9 +338,11 @@ def upload_photo(request):
                         f = ContentFile(out.getvalue(), name=f.name)
                 except: pass
             if ext in VIDEO_EXTS:
+                from .utils import save_video_file
+                video_file, compressed = save_video_file(f)
                 p = Photo.objects.create(
                     album=album, uploaded_by=request.user.profile,
-                    video=f, caption=caption, description=description, message=message,
+                    video=video_file, caption=caption, description=description, message=message,
                     visibility=visibility
                 )
                 if visible_names: p.visible_to.set(Profile.objects.filter(display_name__in=visible_names))
@@ -383,7 +385,8 @@ def upload_photo(request):
             is_public=True, name__icontains=uploader_name
         ).filter(name__icontains=target_name)
     import json as jmod
-    all_names_json = jmod.dumps(list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True)), ensure_ascii=False)
+    from .utils import get_sorted_names
+    all_names_json = jmod.dumps(get_sorted_names(), ensure_ascii=False)
     return render(request, 'memories/upload_photo.html', {
         'albums': my_albums,
         'target_name': target_name,
@@ -428,14 +431,25 @@ def upload_event_photo(request, event_id):
         for f in files:
             ext = os.path.splitext(f.name)[1].lower()
             if ext in VIDEO_EXTS:
+                from .utils import save_video_file
+                video_file, _ = save_video_file(f)
                 EventPhoto.objects.create(
                     event=event,
                     uploaded_by=request.user.profile,
-                    video=f,
+                    video=video_file,
                     caption=caption
                 )
                 vid_count += 1
             else:
+                # 图片压缩
+                try:
+                    if f.size > 200 * 1024:
+                        from PIL import Image as PILImage
+                        im = PILImage.open(f); im.thumbnail((1920, 1920), PILImage.LANCZOS)
+                        out = io.BytesIO(); im.save(out, format='JPEG', quality=80)
+                        from django.core.files.base import ContentFile
+                        f = ContentFile(out.getvalue(), name=f.name)
+                except: pass
                 EventPhoto.objects.create(
                     event=event,
                     uploaded_by=request.user.profile,
@@ -627,14 +641,20 @@ def photo_delete(request, photo_id):
     if photo.uploaded_by != request.user.profile:
         messages.error(request, '你没有权限删除这张照片')
         return redirect('space', display_name=request.user.profile.display_name)
-    album_id = photo.album.id if photo.album else None
+    album = photo.album
+    album_id = album.id if album else None
     # 在删除前记录日志（删后 photo 对象无法关联）
     log_activity(request.user.profile, '删除文件', f'删除了「{photo.caption or photo.image.name.split("/")[-1] if photo.image else photo.video.name.split("/")[-1]}」', photo=None)
     photo.image.delete(save=False)
     if photo.video: photo.video.delete(save=False)
-    # 重新创建一条带描述的日志
     photo.delete()
-    messages.success(request, '已删除')
+    # 删除后检查相册是否为空，为空则自动删除
+    if album and not album.photos.exists():
+        album_name = album.name
+        album.delete()
+        messages.success(request, f'已删除（相册「{album_name}」无剩余照片，已自动删除）')
+    else:
+        messages.success(request, '已删除')
     if album_id: return redirect('album_detail', album_id=album_id)
     return redirect('auto_upload')
 
@@ -674,9 +694,12 @@ def comment_delete(request, comment_id):
 def classmates(request):
     query = request.GET.get('q', '').strip()
     if query:
-        entries = PendingRegistration.objects.filter(name__icontains=query).order_by('name')
+        entries = PendingRegistration.objects.filter(name__icontains=query)
     else:
-        entries = PendingRegistration.objects.all().order_by('name')
+        entries = PendingRegistration.objects.all()
+    # 按拼音排序
+    from .utils import pinyin_sort_key
+    entries = sorted(entries, key=lambda r: pinyin_sort_key(r.name))
     # 构建简要信息
     roster_data = []
     for r in entries:
@@ -767,9 +790,14 @@ def shared_album_upload(request, album_id):
                         from django.core.files.base import ContentFile
                         f = ContentFile(out.getvalue(), name=f.name)
                 except: pass
-            p = Photo.objects.create(album=album, uploaded_by=request.user.profile,
-                image=f if ext not in VIDEO_EXTS else None,
-                video=f if ext in VIDEO_EXTS else None, caption=caption)
+            if ext in VIDEO_EXTS:
+                from .utils import save_video_file
+                video_file, _ = save_video_file(f)
+                p = Photo.objects.create(album=album, uploaded_by=request.user.profile,
+                    video=video_file, caption=caption)
+            else:
+                p = Photo.objects.create(album=album, uploaded_by=request.user.profile,
+                    image=f, caption=caption)
             count += 1
             action = '上传视频' if ext in VIDEO_EXTS else '上传照片'
             log_activity(request.user.profile, action, f'{action}「{caption or f.name}」到共同相册「{album.name}」', photo=p)
@@ -896,20 +924,31 @@ def auto_upload(request, target_name=None):
                         f.seek(0)
                         album_name = f'{uploader.display_name}为{t.display_name}自动上传的相册'
                         album, _ = Album.objects.get_or_create(owner=t, name=album_name, defaults={'is_public': True, 'album_type': 'personal'})
-                        photo = Photo.objects.create(album=album, uploaded_by=uploader,
-                            image=f if not is_video else None, video=f if is_video else None,
-                            caption=caption, message=message)
+                        if is_video:
+                            from .utils import save_video_file
+                            video_file, _ = save_video_file(f)
+                            photo = Photo.objects.create(album=album, uploaded_by=uploader,
+                                video=video_file, caption=caption, message=message)
+                        else:
+                            photo = Photo.objects.create(album=album, uploaded_by=uploader,
+                                image=f, caption=caption, message=message)
                         if t.user and t != uploader:
                             from .utils import create_notification
                             create_notification(recipient_user=t.user, sender_profile=uploader,
                                 title='有人为你自动上传了照片', message=f'{uploader.display_name} 为你上传了照片到「{album_name}」',
                                 related_url=f'/album/{album.id}/', notification_type='public_photo')
+                        result_album_id = album.id
                     log_activity(uploader, '自动上传匹配', f'{f.name}/{",".join([t.display_name for t in targets])}')
-                    results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id, 'pending': False})
+                    results.append({'file': f.name, 'targets': [t.display_name for t in targets], 'is_video': is_video, 'photo_id': photo.id, 'album_id': result_album_id, 'pending': False})
                 else:
-                    photo = Photo.objects.create(album=None, uploaded_by=uploader,
-                        image=f if not is_video else None, video=f if is_video else None,
-                        caption=caption, message=message)
+                    if is_video:
+                        from .utils import save_video_file
+                        video_file, _ = save_video_file(f)
+                        photo = Photo.objects.create(album=None, uploaded_by=uploader,
+                            video=video_file, caption=caption, message=message)
+                    else:
+                        photo = Photo.objects.create(album=None, uploaded_by=uploader,
+                            image=f, caption=caption, message=message)
                     detail = f'{f.name}:{search_log}' if search_log else f'{f.name}:未检测到人脸'
                     log_activity(uploader, '自动上传未匹配', detail)
                     results.append({'file': f.name, 'targets': [], 'is_video': is_video, 'photo_id': photo.id, 'pending': True})
@@ -917,14 +956,82 @@ def auto_upload(request, target_name=None):
                 log_activity(uploader, '自动上传异常', f'{f.name}:{str(e)[:200]}')
                 results.append({'file': f.name, 'targets': [], 'is_video': False, 'photo_id': None, 'pending': True})
 
-        from memories.models import PendingRegistration
-        all_names = list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True))
+        from .utils import get_sorted_names
+        all_names = get_sorted_names()
         return render(request, 'memories/auto_upload_confirm.html', {
             'results': results, 'uploader_name': uploader.display_name, 'all_names': all_names
         })
 
     # GET: 显示上传页，同时显示待处理照片
     pending = Photo.objects.filter(uploaded_by=request.user.profile, album__isnull=True).order_by('-uploaded_at')
-    from memories.models import PendingRegistration
-    all_names = list(PendingRegistration.objects.all().order_by('name').values_list('name', flat=True))
+    from .utils import get_sorted_names
+    all_names = get_sorted_names()
     return render(request, 'memories/auto_upload.html', {'target': target, 'pending': pending, 'all_names': all_names})
+
+
+# ========== 留言板 ==========
+@login_required
+def message_board(request):
+    """留言板主页：自由留言 + 问题反馈"""
+    from .models import Message
+    from django.core.paginator import Paginator
+    tab = request.GET.get('tab', 'free')  # 'free' or 'feedback'
+
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        msg_type = request.POST.get('msg_type', 'free')
+        image = request.FILES.get('image')
+        if not content:
+            messages.error(request, '请输入内容')
+            return redirect(f'/messages/?tab={msg_type}')
+        Message.objects.create(
+            author=request.user.profile, msg_type=msg_type,
+            content=content, image=image
+        )
+        messages.success(request, '留言发布成功！')
+        return redirect(f'/messages/?tab={msg_type}')
+
+    msgs = Message.objects.filter(msg_type=tab, parent__isnull=True).select_related('author').prefetch_related('replies')
+    paginator = Paginator(msgs, 15)
+    page = int(request.GET.get('page', 1))
+    msgs_page = paginator.get_page(page)
+
+    # 置顶内容
+    pinned = SiteSetting.objects.filter(key='pinned_message').first()
+
+    return render(request, 'memories/message_board.html', {
+        'tab': tab, 'msgs': msgs_page, 'pinned': pinned,
+    })
+
+
+@login_required
+def message_delete(request, msg_id):
+    msg = get_object_or_404(Message, id=msg_id)
+    if msg.author != request.user.profile and not request.user.is_superuser:
+        messages.error(request, '无权限删除')
+        return redirect('/messages/')
+    tab = msg.msg_type
+    msg.delete()
+    messages.success(request, '已删除')
+    return redirect(f'/messages/?tab={tab}')
+
+
+@login_required
+def message_reply(request, msg_id):
+    """管理员回复留言"""
+    if not request.user.is_staff:
+        messages.error(request, '仅管理员可回复')
+        return redirect('/messages/')
+    msg = get_object_or_404(Message, id=msg_id)
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        if content:
+            from .models import Message
+            Message.objects.create(
+                author=request.user.profile, msg_type=msg.msg_type,
+                content=content, parent=msg
+            )
+            msg.status = 'resolved'
+            msg.save()
+            messages.success(request, '已回复')
+    return redirect(f'/messages/?tab={msg.msg_type}')

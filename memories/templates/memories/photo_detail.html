@@ -14,6 +14,7 @@
         <p style="color:#888;font-size:0.85rem;">上传者：{{ photo.uploaded_by.display_name }} · {{ photo.uploaded_at|date:"Y-m-d H:i" }}</p>
         <p style="color:#888;font-size:0.85rem;">👁️ 浏览 {{ photo.view_count }} 次</p>
         {% if photo.album %}<a class="btn" href="{% url 'album_detail' album_id=photo.album.id %}">📁 查看相册</a>{% endif %}
+        <a class="btn" href="{{ photo.media_url }}" download>⬇ 下载</a>
         {% if photo.uploaded_by == user.profile %}<a class="btn del-btn" href="{% url 'photo_delete' photo_id=photo.id %}" onclick="return confirm('确定删除？')">🗑️ 删除</a>{% endif %}
     </div>
 

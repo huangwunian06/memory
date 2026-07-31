@@ -41,6 +41,9 @@ urlpatterns = [
     path('export/', views.export_photos, name='export_photos'),
     path('auto-upload/', views.auto_upload, name='auto_upload'),
     path('auto-upload/<str:target_name>/', views.auto_upload, name='auto_upload_target'),
+    path('messages/', views.message_board, name='message_board'),
+    path('messages/<int:msg_id>/delete/', views.message_delete, name='message_delete'),
+    path('messages/<int:msg_id>/reply/', views.message_reply, name='message_reply'),
 ]
 
 if settings.DEBUG:

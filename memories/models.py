@@ -220,6 +220,7 @@ class TimelineEvent(models.Model):
     class Meta:
         verbose_name = '时间线事件'
         verbose_name_plural = '时间线事件'
+        ordering = ['-event_date', '-created_at']
 
     def __str__(self):
         return self.title
@@ -331,6 +332,27 @@ class SiteSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+# ========== 留言板 ==========
+class Message(models.Model):
+    MSG_TYPES = [('free', '自由留言'), ('feedback', '问题反馈')]
+    author = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='messages', verbose_name='留言者')
+    msg_type = models.CharField(max_length=10, choices=MSG_TYPES, default='free', verbose_name='留言类型')
+    content = models.TextField(max_length=2000, verbose_name='内容')
+    image = models.ImageField(upload_to='messages/', blank=True, null=True, verbose_name='附图')
+    STATUS_CHOICES = [('open', '待处理'), ('resolved', '已解决')]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open', verbose_name='状态')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies', verbose_name='回复目标')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='发布时间')
+
+    class Meta:
+        verbose_name = '留言板'
+        verbose_name_plural = '留言板'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.get_msg_type_display()}] {self.author.display_name}: {self.content[:40]}'
 
 
 # ========== 通知系统 ==========

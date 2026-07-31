@@ -6,7 +6,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils import timezone
-from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment, FaceTrainingPhoto
+from .models import Profile, InviteCode, PendingRegistration, ClassPhoto, FaceHotzone, Album, Photo, PhotoFaceMapping, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, ActivityLog, Comment, FaceTrainingPhoto, Message
 
 # 重写 admin 首页加磁盘用量
 _original_index = admin.site.index
@@ -455,7 +455,7 @@ class SiteSettingAdmin(admin.ModelAdmin):
     fieldsets = (
         ('设置项', {
             'fields': ('key', 'value', 'image'),
-            'description': 'key=设置项名称（如 home_bg 为首页背景）；value=文本值（可选）；image=图片值（可选）'
+            'description': 'key=home_bg→首页背景；key=pinned_message→留言板置顶信封内容；value=文本；image=图片（可选）'
         }),
     )
 
@@ -584,3 +584,27 @@ class FaceTrainingPhotoAdmin(admin.ModelAdmin):
                 self.message_user(request, f'❌ [{err_code}] {err_msg}', level='error')
         except Exception as e:
             self.message_user(request, f'❌ Baidu调用异常: {str(e)}', level='error')
+
+
+# ========== 留言板 ==========
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    """
+    留言板管理 —— 自由留言和问题反馈。
+    可在站点设置中新增 key=pinned_message 来置顶一段话到自由留言顶部。
+    ★ 置顶内容支持 HTML，会以信封动画展示。
+    """
+    list_display = ('content_preview', 'author', 'msg_type', 'status', 'created_at')
+    list_filter = ('msg_type', 'status')
+    search_fields = ('author__display_name', 'content')
+    list_editable = ('status',)
+    fieldsets = (
+        ('留言信息', {
+            'fields': ('author', 'msg_type', 'content', 'image', 'status', 'parent'),
+            'description': '可在此编辑留言内容、更改状态、上传附图。回复某条留言请设置 parent 字段。'
+        }),
+    )
+
+    @admin.display(description='内容')
+    def content_preview(self, obj):
+        return obj.content[:60]
