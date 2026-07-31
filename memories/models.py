@@ -67,10 +67,20 @@ class InviteCode(models.Model):
 class PendingRegistration(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name='姓名')
     is_taken = models.BooleanField(default=False, verbose_name='是否已注册')
+    pinyin_key = models.CharField(max_length=100, blank=True, db_index=True, verbose_name='拼音排序键')
 
     class Meta:
         verbose_name = '花名册'
         verbose_name_plural = '花名册'
+        ordering = ['pinyin_key']
+
+    def save(self, *args, **kwargs):
+        try:
+            from pypinyin import lazy_pinyin
+            self.pinyin_key = ''.join(lazy_pinyin(self.name)).lower()
+        except ImportError:
+            self.pinyin_key = self.name.lower()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} {'(已注册)' if self.is_taken else '(可用)'}"

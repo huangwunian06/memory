@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout as auth_logout
 from django.conf import settings
 from .models import InviteCode, PendingRegistration, Profile, ClassPhoto, FaceHotzone, Album, Photo, TimelineEvent, EventPhoto, CorrectionRequest, SiteSetting, Notification, Comment
-from .utils import get_face_client, log_activity, pinyin_sort_key
+from .utils import get_face_client, log_activity
 
 
 # ========== 注册 ==========
@@ -51,16 +51,16 @@ def register(request):
 
         if User.objects.filter(username=username).exists():
             messages.error(request, '用户名已被使用')
-            return render(request, 'memories/register.html', {'step': 'info', 'available_names': sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))})
+            return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
 
         try:
             name_entry = PendingRegistration.objects.get(name=display_name)
             if name_entry.is_taken:
                 messages.error(request, '该姓名已被注册')
-                return render(request, 'memories/register.html', {'step': 'info', 'available_names': sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))})
+                return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
         except PendingRegistration.DoesNotExist:
             messages.error(request, '姓名不在班级名单中')
-            return render(request, 'memories/register.html', {'step': 'info', 'available_names': sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))})
+            return render(request, 'memories/register.html', {'step': 'info', 'available_names': PendingRegistration.objects.filter(is_taken=False)})
 
         user = User.objects.create_user(username=username, password=password)
         profile = Profile.objects.create(user=user, display_name=display_name)
@@ -99,7 +99,7 @@ def register(request):
         log_activity(profile, '注册账号', f'{display_name} 注册了账号')
         return redirect('login')
 
-    available_names = sorted(PendingRegistration.objects.filter(is_taken=False), key=lambda r: pinyin_sort_key(r.name))
+    available_names = PendingRegistration.objects.filter(is_taken=False)
     return render(request, 'memories/register.html', {'step': 'info', 'available_names': available_names})
 
 
@@ -702,9 +702,7 @@ def classmates(request):
         entries = PendingRegistration.objects.filter(name__icontains=query)
     else:
         entries = PendingRegistration.objects.all()
-    # 按拼音排序
-    from .utils import pinyin_sort_key
-    entries = sorted(entries, key=lambda r: pinyin_sort_key(r.name))
+    # 数据库已按 pinyin_key 排序（Meta.ordering）
     # 构建简要信息
     roster_data = []
     for r in entries:

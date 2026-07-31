@@ -44,10 +44,9 @@ except ImportError:
 
 
 def get_sorted_names():
-    """获取花名册所有姓名，按拼音排序"""
+    """获取花名册所有姓名，按拼音排序（数据库Meta.ordering）"""
     from .models import PendingRegistration
-    names = list(PendingRegistration.objects.values_list('name', flat=True))
-    return sorted(names, key=pinyin_sort_key)
+    return list(PendingRegistration.objects.values_list('name', flat=True))
 
 
 def save_video_file(uploaded_file):
