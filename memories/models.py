@@ -449,3 +449,11 @@ def auto_log_delete(sender, instance, **kwargs):
     if sender.__name__ == 'ActivityLog':
         return
     _log_model_action(instance, '删除')
+
+
+@receiver(post_delete, sender=Photo)
+def auto_delete_empty_album(sender, instance, **kwargs):
+    """删除照片后检查相册是否为空，为空则自动删除"""
+    album = instance.album
+    if album and not album.photos.exists():
+        album.delete()
