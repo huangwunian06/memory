@@ -270,6 +270,31 @@ class ClassPhotoAdmin(admin.ModelAdmin):
     list_display = ('title', 'order', 'hotzone_count', 'created_at')
     list_editable = ('order',)
     inlines = [FaceHotzoneInline]
+    actions = ['regenerate_hotzones']
+
+    @admin.action(description='🔄 强制重新生成热区（删除现有+重新检测人脸）')
+    def regenerate_hotzones(self, request, queryset):
+        from .utils import detect_faces_in_photo
+        count = 0
+        for cp in queryset:
+            cp.hotzones.all().delete()
+            try:
+                faces = detect_faces_in_photo(cp.image.path)
+                for face in faces:
+                    cx = face['x'] + face['width'] / 2
+                    cy = face['y'] + face['height'] / 2 + face['height'] * 0.8
+                    w2 = min(face['width'] * 3.0, 28)
+                    h2 = min(face['height'] * 4.0, 40)
+                    FaceHotzone.objects.create(
+                        photo=cp, profile=None,
+                        x=max(0, cx - w2 / 2), y=max(0, cy - h2 / 2),
+                        width=min(w2, 100 - max(0, cx - w2 / 2)),
+                        height=min(h2, 100 - max(0, cy - h2 / 2))
+                    )
+                count += 1
+            except Exception as e:
+                self.message_user(request, f'❌ {cp.title}: {e}', level='error')
+        self.message_user(request, f'✅ 已重新生成 {count} 张合照的热区（放大覆盖头部+上半身）')
     fieldsets = (
         ('合照信息', {
             'fields': ('title', 'image', 'description', 'order'),
