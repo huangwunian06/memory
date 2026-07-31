@@ -30,7 +30,8 @@
         {% endfor %}
       </select><br><br>
       <label>上传本人清晰正面照（用于人脸识别，必填）：</label>
-      <input type="file" name="face_photo" accept="image/*" required><br><br>
+      <input type="file" name="face_photo" accept="image/*" required>
+      <small style="color:#e67e22;">⚠️ 请上传五官清晰、光线均匀的正面照，勿遮挡面部。模糊/侧脸/暗光可能导致注册失败。</small><br><br>
       <button class="btn" type="submit" style="width:100%;">注册</button>
     </form>
     {% endif %}
