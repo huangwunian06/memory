@@ -1018,10 +1018,7 @@ def message_delete(request, msg_id):
 
 @login_required
 def message_reply(request, msg_id):
-    """管理员回复留言"""
-    if not request.user.is_staff:
-        messages.error(request, '仅管理员可回复')
-        return redirect('/messages/')
+    """回复留言（所有人可回复）"""
     msg = get_object_or_404(Message, id=msg_id)
     if request.method == 'POST':
         content = request.POST.get('content', '').strip()
@@ -1031,7 +1028,9 @@ def message_reply(request, msg_id):
                 author=request.user.profile, msg_type=msg.msg_type,
                 content=content, parent=msg
             )
-            msg.status = 'resolved'
-            msg.save()
-            messages.success(request, '已回复')
+            # 管理员回复时标记已解决
+            if request.user.is_staff:
+                msg.status = 'resolved'
+                msg.save()
+            messages.success(request, '回复成功')
     return redirect(f'/messages/?tab={msg.msg_type}')
