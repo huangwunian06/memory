@@ -80,7 +80,7 @@ class PendingRegistration(models.Model):
         try:
             from pypinyin import lazy_pinyin
             self.pinyin_key = ''.join(lazy_pinyin(self.name)).lower()
-        except ImportError:
+        except Exception:
             self.pinyin_key = self.name.lower()
         super().save(*args, **kwargs)
 
