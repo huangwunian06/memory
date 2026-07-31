@@ -458,11 +458,14 @@ def auto_log_save(sender, instance, created, **kwargs):
         return
     if sender.__name__ == 'ActivityLog':
         return  # 不记录日志本身
-    # 仅更新无意义的计数/状态字段时不记录日志
     update_fields = kwargs.get('update_fields')
-    if update_fields and set(update_fields).issubset({'view_count', 'is_read', 'used_count'}):
+    # 仅标记已读/使用次数等状态变更不记录
+    if update_fields and set(update_fields).issubset({'is_read', 'used_count'}):
         return
-    action = '新增' if created else '修改'
+    if update_fields and set(update_fields) == {'view_count'}:
+        action = '查看'
+    else:
+        action = '新增' if created else '修改'
     # 避免在 auto_create_hotzones 信号中为每个热区单独记录
     if sender.__name__ == 'FaceHotzone' and not created:
         return
