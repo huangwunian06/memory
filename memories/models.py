@@ -1,9 +1,20 @@
 import os
+import threading
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+
+# 线程局部变量：用于 signal 中获取当前操作用户
+_thread_locals = threading.local()
+
+def get_current_user():
+    """获取当前请求的用户（在 signal 中使用）"""
+    return getattr(_thread_locals, 'user', None)
+
+def set_current_user(user):
+    _thread_locals.user = user
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile', verbose_name='用户账号')
@@ -380,3 +391,50 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{'已读' if self.is_read else '未读'}] {self.title} -> {self.recipient.username}"
+
+
+# ========== 全局操作日志信号 ==========
+MODEL_VERBOSE = {
+    'ClassPhoto': '班级合照', 'FaceHotzone': '人脸热区', 'Album': '相册',
+    'Photo': '照片', 'EventPhoto': '事件照片', 'TimelineEvent': '时间线事件',
+    'Comment': '评论', 'Message': '留言', 'PendingRegistration': '花名册',
+    'FaceTrainingPhoto': '人脸训练', 'CorrectionRequest': '修正请求',
+    'Notification': '通知', 'InviteCode': '邀请码', 'Profile': '档案',
+    'SiteSetting': '站点设置',
+}
+
+def _log_model_action(instance, action, user=None):
+    """自动记录模型变更到 ActivityLog"""
+    model_name = type(instance).__name__
+    label = MODEL_VERBOSE.get(model_name, model_name)
+    obj_repr = str(instance)[:100]
+    actor = user or get_current_user()
+    if not actor:
+        return
+    ActivityLog.objects.create(
+        user=actor,
+        action=action,
+        detail=f'{action} [{label}] {obj_repr}'
+    )
+
+
+@receiver(post_save)
+def auto_log_save(sender, instance, created, **kwargs):
+    if sender.__name__ not in MODEL_VERBOSE:
+        return
+    if sender.__name__ == 'ActivityLog':
+        return  # 不记录日志本身
+    action = '新增' if created else '修改'
+    # 避免在 auto_create_hotzones 信号中为每个热区单独记录
+    if sender.__name__ == 'FaceHotzone' and not created:
+        return
+    _log_model_action(instance, action)
+
+
+@receiver(post_delete)
+def auto_log_delete(sender, instance, **kwargs):
+    if sender.__name__ not in MODEL_VERBOSE:
+        return
+    if sender.__name__ == 'ActivityLog':
+        return
+    _log_model_action(instance, '删除')

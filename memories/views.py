@@ -264,6 +264,7 @@ def album_restore(request, album_id):
     album = get_object_or_404(Album, id=album_id)
     album.is_deleted = False
     album.save()
+    log_activity(request.user.profile, '恢复相册', f'恢复了相册「{album.name}」')
     messages.success(request, f'相册「{album.name}」已恢复')
     return redirect('admin:index')
 
@@ -460,6 +461,7 @@ def upload_event_photo(request, event_id):
         parts = []
         if img_count: parts.append(f'{img_count} 张照片')
         if vid_count: parts.append(f'{vid_count} 个视频')
+        log_activity(request.user.profile, '上传事件照片', f'为事件「{event.title}」上传了 {"、".join(parts)}')
         messages.success(request, f'成功上传 {"、".join(parts)} 到活动')
         # 通知事件创建者
         if event.created_by.user != request.user:
@@ -513,6 +515,7 @@ def edit_profile(request):
         birthday_str = request.POST.get('birthday')
         profile.birthday = birthday_str if birthday_str else None
         profile.save()
+        log_activity(request.user.profile, '修改资料', '更新了个人资料')
         messages.success(request, '个人信息已更新')
         return redirect('space', display_name=profile.display_name)
     return render(request, 'memories/edit_profile.html', {'profile': profile})
@@ -534,6 +537,7 @@ def edit_bg(request):
         if request.FILES.get('global_bg'):
             profile.global_bg = request.FILES['global_bg']
         profile.save()
+        log_activity(request.user.profile, '更换背景', '更新了背景图片')
         messages.success(request, '背景已更新')
         return redirect('space', display_name=profile.display_name)
     return render(request, 'memories/edit_bg.html', {'profile': profile})
@@ -684,6 +688,7 @@ def comment_delete(request, comment_id):
         messages.error(request, '只能删除自己的评论')
         return redirect('photo_detail', photo_id=comment.photo.id)
     pid = comment.photo.id
+    log_activity(request.user.profile, '删除评论', f'删除了在照片#{pid}下的评论')
     comment.delete()
     messages.success(request, '评论已删除')
     return redirect('photo_detail', photo_id=pid)
@@ -984,10 +989,11 @@ def message_board(request):
         if not content:
             messages.error(request, '请输入内容')
             return redirect(f'/messages/?tab={msg_type}')
-        Message.objects.create(
+        msg = Message.objects.create(
             author=request.user.profile, msg_type=msg_type,
             content=content, image=image
         )
+        log_activity(request.user.profile, '发布留言', f'[{msg.get_msg_type_display()}] {content[:60]}')
         messages.success(request, '留言发布成功！')
         return redirect(f'/messages/?tab={msg_type}')
 
@@ -1011,6 +1017,7 @@ def message_delete(request, msg_id):
         messages.error(request, '无权限删除')
         return redirect('/messages/')
     tab = msg.msg_type
+    log_activity(request.user.profile, '删除留言', f'删除了留言「{msg.content[:50]}」')
     msg.delete()
     messages.success(request, '已删除')
     return redirect(f'/messages/?tab={tab}')
@@ -1024,10 +1031,11 @@ def message_reply(request, msg_id):
         content = request.POST.get('content', '').strip()
         if content:
             from .models import Message
-            Message.objects.create(
+            reply = Message.objects.create(
                 author=request.user.profile, msg_type=msg.msg_type,
                 content=content, parent=msg
             )
+            log_activity(request.user.profile, '回复留言', f'回复了 {msg.author.display_name} 的留言')
             # 管理员回复时标记已解决
             if request.user.is_staff:
                 msg.status = 'resolved'
